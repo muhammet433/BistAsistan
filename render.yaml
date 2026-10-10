@@ -7,14 +7,15 @@ services:
     buildCommand: npm ci --omit=dev
     startCommand: node src/index.js
     healthCheckPath: /api/health
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: "22.13.0"
       - key: NODE_ENV
         value: production
       - key: DB_PATH
-        value: /tmp/bist.db
+        value: /opt/render/project/src/data/bist.db
     disk:
-      name: data
+      name: bist-data
       mountPath: /opt/render/project/src/data
       sizeGB: 1

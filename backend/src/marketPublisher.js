@@ -11,7 +11,6 @@ class MarketPublisher {
 
     async refreshQuotes() {
         if (this.isRefreshing) {
-            console.log('[Publisher] Önceki tur hâlâ çalışıyor, atlanıyor');
             return { skipped: true };
         }
 
@@ -30,12 +29,12 @@ class MarketPublisher {
             }
 
             console.log(
-                `[Publisher] ${saved} fiyat kaydedildi, ${changed.length} değişim, ${sent} istemciye gönderildi (${Date.now() - startedAt}ms)`
+                `[Publisher] ${saved} fiyat kaydedildi, ${changed.length} degisim, ${sent} istemciye gonderildi (${Math.round((Date.now() - startedAt) / 1000)}s)`
             );
 
             return { saved, changes: changed.length, clients: sent };
         } catch (error) {
-            console.error('[Publisher] Fiyat yenileme hatası:', error.message);
+            console.error('[Publisher] Fiyat yenileme hatasi:', error.message);
             return { error: error.message };
         } finally {
             this.isRefreshing = false;
@@ -91,17 +90,10 @@ class MarketPublisher {
     start() {
         this.refreshQuotes().catch(() => {});
 
-        cron.schedule('*/5 * * * *', () => {
+        cron.schedule('*/3 * * * * *', () => {
             const stats = marketCache.getStats();
-            const stale = stats.ageMinutes === null || stats.ageMinutes > 5;
-            if (stale) {
-                this.refreshQuotes().catch(() => {});
-            }
-        });
-
-        cron.schedule('*/15 * * * * *', () => {
-            const stats = marketCache.getStats();
-            if (stats.ageMinutes === null || stats.ageMinutes >= 5) {
+            const age = stats.ageMinutes ?? 0;
+            if (age >= 4) {
                 this.refreshQuotes().catch(() => {});
             }
         });
