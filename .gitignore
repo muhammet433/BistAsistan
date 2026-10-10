@@ -1,0 +1,21 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# Firebase secret — asla commit edilmemeli
+firebase-service-account.json
+.env
+.env.local
+
+# SQLite veritabanı
+backend/data/
+*.db
+*.db-wal
+*.db-shm
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
