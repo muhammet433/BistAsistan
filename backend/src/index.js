@@ -408,18 +408,20 @@ server.listen(PORT, () => {
 });
 
 async function bootstrap() {
+    const { PORT: port } = process.env;
+    console.log(`[Baslangic] Veritabani: ${db.kind}`);
+
     try {
         const stats = await marketCache.getStats();
         if (stats.quoteCount > 0) {
             console.log(`[Baslangic] ${stats.quoteCount} fiyat onbellekten yuklendi`);
-        } else {
-            await marketPublisher.refreshQuotes();
         }
     } catch (error) {
-        console.error('[Baslangic] Ilk yukleme hatasi:', error.message);
+        console.error('[Baslangic] Onbellek okunamadi:', error.message);
     }
 
     marketPublisher.start();
+    console.log(`[Baslangic] Sunucu ${port || 3000} portunda hazir`);
 }
 
 bootstrap();

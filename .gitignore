@@ -1,4 +1,6 @@
 node_modules/
+backend/node_modules/
+mobile/node_modules/
 .expo/
 dist/
 web-build/
@@ -11,6 +13,7 @@ firebase-service-account.json
 
 # SQLite veritabanı
 backend/data/
+data/
 *.db
 *.db-wal
 *.db-shm
@@ -20,5 +23,6 @@ backend/data/
 *.aab
 *.ipa
 
-# EAS
+# EAS / Nixpacks
 .eas/
+.nixpacks/
