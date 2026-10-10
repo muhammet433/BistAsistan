@@ -1,4 +1,4 @@
-const admin = require('firebase-admin');
+﻿const admin = require('firebase-admin');
 const path = require('path');
 const authService = require('./authService');
 
@@ -27,8 +27,8 @@ class NotificationService {
         }
     }
 
-    subscribe(userId, fcmToken) {
-        const user = authService.getUser(userId);
+    async subscribe(userId, fcmToken) {
+        const user = await authService.getUser(userId);
         const watchlist = user?.watchlist || [];
 
         this.subscriptions.set(userId, {
@@ -42,9 +42,9 @@ class NotificationService {
         return { success: true, symbols: watchlist };
     }
 
-    syncFromWatchlist(userId) {
+    async syncFromWatchlist(userId) {
         if (!this.subscriptions.has(userId)) return;
-        const watchlist = authService.getWatchlist(userId);
+        const watchlist = await authService.getWatchlist(userId);
         const sub = this.subscriptions.get(userId);
         sub.preferences.symbols = watchlist;
     }
@@ -58,7 +58,7 @@ class NotificationService {
         const subscription = this.subscriptions.get(userId);
 
         if (!subscription) {
-            const stored = authService.getFCMToken(userId);
+            const stored = await authService.getFCMToken(userId);
             if (!stored) return { success: false, error: 'Abonelik yok' };
             this.subscribe(userId, stored);
         }
@@ -107,3 +107,4 @@ class NotificationService {
 }
 
 module.exports = new NotificationService();
+

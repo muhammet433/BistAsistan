@@ -1,4 +1,4 @@
-const cron = require('node-cron');
+﻿const cron = require('node-cron');
 const dataFetcher = require('./dataFetcher');
 const analysisEngine = require('./analysisEngine');
 const marketCache = require('./marketCacheService');
@@ -21,7 +21,7 @@ class MarketPublisher {
             const quotes = await dataFetcher.fetchAllQuotes();
             const saved = marketCache.saveQuotes(quotes);
 
-            const changed = this.findChanged(quotes);
+            const changed = await this.findChanged(quotes);
             const sent = realtime.broadcastQuotes(quotes);
 
             if (changed.length > 0) {
@@ -41,11 +41,11 @@ class MarketPublisher {
         }
     }
 
-    findChanged(quotes) {
+    async findChanged(quotes) {
         const changes = [];
 
         for (const quote of quotes) {
-            const previous = marketCache.getQuote(quote.symbol);
+            const previous = await marketCache.getQuote(quote.symbol);
             if (!previous || previous.price === quote.price) continue;
 
             changes.push({
@@ -64,7 +64,7 @@ class MarketPublisher {
 
         for (const symbol of symbols) {
             try {
-                const cached = marketCache.getAnalysis(symbol, 60);
+                const cached = await marketCache.getAnalysis(symbol, 60);
                 if (cached) {
                     results[symbol] = cached;
                     continue;
@@ -77,7 +77,7 @@ class MarketPublisher {
                 const overall = analysisEngine.getOverallSignal(analysis.signals || []);
                 const payload = { ...analysis, overall };
 
-                marketCache.saveAnalysis(symbol, payload);
+                await marketCache.saveAnalysis(symbol, payload);
                 results[symbol] = payload;
             } catch (error) {
                 console.error(`[Publisher] ${symbol} analizi hatası:`, error.message);
@@ -87,11 +87,11 @@ class MarketPublisher {
         return results;
     }
 
-    start() {
+start() {
         this.refreshQuotes().catch(() => {});
 
-        cron.schedule('*/3 * * * * *', () => {
-            const stats = marketCache.getStats();
+        cron.schedule('*/3 * * * * *', async () => {
+            const stats = await marketCache.getStats();
             const age = stats.ageMinutes ?? 0;
             if (age >= 4) {
                 this.refreshQuotes().catch(() => {});

@@ -1,8 +1,9 @@
 const crypto = require('crypto');
 const db = require('./database');
+const { toArg } = require('./database');
 
 class AlertService {
-    create(userId, symbol, condition) {
+    async create(userId, symbol, condition) {
         const metric = condition.type;
         const direction = condition.direction;
         const threshold = Number(condition.threshold);
@@ -18,65 +19,70 @@ class AlertService {
         }
 
         const alertId = crypto.randomUUID();
-        db.run(
+        await db.run(
             `INSERT INTO alerts (alert_id, user_id, symbol, metric, direction, threshold)
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [alertId, userId, symbol.toUpperCase(), metric, direction, threshold]
+            [
+                toArg(alertId),
+                toArg(userId),
+                toArg(symbol.toUpperCase()),
+                toArg(metric),
+                toArg(direction),
+                toArg(threshold),
+            ]
         );
 
         return { success: true, alertId };
     }
 
-    getForUser(userId) {
-        return db.query(
+    async getForUser(userId) {
+        const rows = await db.all(
             'SELECT * FROM alerts WHERE user_id = ? ORDER BY created_at DESC',
-            [userId]
-        ).map(this.mapRow);
+            [toArg(userId)]
+        );
+        return rows.map(row => this.mapRow(row));
     }
 
-    getActiveForSymbol(userId, symbol) {
-        return db.query(
-            `SELECT * FROM alerts
-             WHERE user_id = ? AND symbol = ? AND active = 1`,
-            [userId, symbol.toUpperCase()]
-        ).map(this.mapRow);
+    async getActiveForSymbol(userId, symbol) {
+        const rows = await db.all(
+            'SELECT * FROM alerts WHERE user_id = ? AND symbol = ? AND active = 1',
+            [toArg(userId), toArg(symbol.toUpperCase())]
+        );
+        return rows.map(row => this.mapRow(row));
     }
 
-    getActiveByUser(userId) {
-        return db.query(
-            'SELECT * FROM alerts WHERE user_id = ? AND active = 1',
-            [userId]
-        ).map(this.mapRow);
-    }
-
-    remove(userId, alertId) {
-        const result = db.run('DELETE FROM alerts WHERE user_id = ? AND alert_id = ?', [userId, alertId]);
+    async remove(userId, alertId) {
+        const result = await db.run('DELETE FROM alerts WHERE user_id = ? AND alert_id = ?', [
+            toArg(userId),
+            toArg(alertId),
+        ]);
         return { success: result.changes > 0 };
     }
 
-    reactivate(userId, alertId) {
-        const result = db.run(
-            `UPDATE alerts SET active = 1, triggered_at = NULL
-             WHERE user_id = ? AND alert_id = ?`,
-            [userId, alertId]
+    async reactivate(userId, alertId) {
+        const result = await db.run(
+            'UPDATE alerts SET active = 1, triggered_at = NULL WHERE user_id = ? AND alert_id = ?',
+            [toArg(userId), toArg(alertId)]
         );
         return { success: result.changes > 0 };
     }
 
-    markTriggered(alertId) {
-        db.run(
+    async markTriggered(alertId) {
+        await db.run(
             "UPDATE alerts SET active = 0, triggered_at = datetime('now') WHERE alert_id = ?",
-            [alertId]
+            [toArg(alertId)]
         );
     }
 
-    checkAlerts(userId, symbol, analysis) {
-        const alerts = this.getActiveForSymbol(userId, symbol);
+    async checkAlerts(userId, symbol, analysis) {
+        const alerts = await this.getActiveForSymbol(userId, symbol);
         const triggered = [];
 
         for (const alert of alerts) {
             const currentValue =
-                alert.condition.type === 'PRICE' ? analysis.currentPrice : analysis.indicators?.rsi;
+                alert.condition.type === 'PRICE'
+                    ? analysis.currentPrice
+                    : analysis.indicators?.rsi;
 
             if (!Number.isFinite(currentValue)) continue;
 
@@ -95,7 +101,7 @@ class AlertService {
                     threshold: alert.condition.threshold,
                     timestamp: new Date().toISOString(),
                 });
-                this.markTriggered(alert.id);
+                await this.markTriggered(alert.id);
             }
         }
 

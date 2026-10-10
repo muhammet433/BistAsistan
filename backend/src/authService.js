@@ -1,33 +1,41 @@
-const crypto = require('crypto');
+﻿const crypto = require('crypto');
 const db = require('./database');
+const { toArg } = require('./database');
 
 const SESSION_DAYS = 30;
 
 class AuthService {
-    register(name, email, password) {
+    async register(name, email, password) {
         const normalizedEmail = email.toLowerCase().trim();
 
         if (password.length < 6) {
             return { success: false, error: 'Şifre en az 6 karakter olmalı' };
         }
 
-        const existing = db.get('SELECT user_id FROM users WHERE email = ?', [normalizedEmail]);
+        const existing = await db.get('SELECT user_id FROM users WHERE email = ?', [
+            toArg(normalizedEmail),
+        ]);
         if (existing) {
             return { success: false, error: 'Bu e-posta zaten kayıtlı' };
         }
 
         const userId = crypto.randomUUID();
-        db.run(
+        await db.run(
             'INSERT INTO users (user_id, name, email, password) VALUES (?, ?, ?, ?)',
-            [userId, name.trim(), normalizedEmail, this.hashPassword(password)]
+            [
+                toArg(userId),
+                toArg(name.trim()),
+                toArg(normalizedEmail),
+                toArg(this.hashPassword(password)),
+            ]
         );
 
         return { success: true, userId, message: 'Kayıt başarılı' };
     }
 
-    login(email, password) {
+    async login(email, password) {
         const normalizedEmail = email.toLowerCase().trim();
-        const user = db.get('SELECT * FROM users WHERE email = ?', [normalizedEmail]);
+        const user = await db.get('SELECT * FROM users WHERE email = ?', [toArg(normalizedEmail)]);
 
         if (!user) {
             return { success: false, error: 'Kullanıcı bulunamadı' };
@@ -43,9 +51,9 @@ class AuthService {
             .replace('T', ' ')
             .slice(0, 19);
 
-        db.run(
+        await db.run(
             'INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)',
-            [token, user.user_id, expiresAt]
+            [toArg(token), toArg(user.user_id), toArg(expiresAt)]
         );
 
         return {
@@ -59,25 +67,25 @@ class AuthService {
         };
     }
 
-    logout(token) {
-        db.run('DELETE FROM sessions WHERE token = ?', [token]);
+    async logout(token) {
+        await db.run('DELETE FROM sessions WHERE token = ?', [toArg(token)]);
         return { success: true };
     }
 
-    validateToken(token) {
-        const session = db.get(
+    async validateToken(token) {
+        const session = await db.get(
             `SELECT user_id FROM sessions
              WHERE token = ?
                AND (expires_at IS NULL OR expires_at > datetime('now'))`,
-            [token]
+            [toArg(token)]
         );
         return session ? session.user_id : null;
     }
 
-    getUser(userId) {
-        const user = db.get(
+    async getUser(userId) {
+        const user = await db.get(
             'SELECT user_id, name, email, min_confidence, fcm_token FROM users WHERE user_id = ?',
-            [userId]
+            [toArg(userId)]
         );
 
         if (!user) return null;
@@ -88,46 +96,64 @@ class AuthService {
             email: user.email,
             preferences: { minConfidence: user.min_confidence },
             fcmToken: user.fcm_token,
-            watchlist: this.getWatchlist(userId),
+            watchlist: await this.getWatchlist(userId),
         };
     }
 
-    getWatchlist(userId) {
-        return db
-            .query('SELECT symbol FROM watchlist WHERE user_id = ? ORDER BY added_at DESC', [userId])
-            .map(row => row.symbol);
+    async getWatchlist(userId) {
+        const rows = await db.all(
+            'SELECT symbol FROM watchlist WHERE user_id = ? ORDER BY added_at DESC',
+            [toArg(userId)]
+        );
+        return rows.map(row => row.symbol);
     }
 
-    updateWatchlist(userId, symbol, action = 'add') {
+    async updateWatchlist(userId, symbol, action = 'add') {
         const normalized = symbol.toUpperCase();
+
         if (action === 'add') {
-            db.run(
+            await db.run(
                 'INSERT OR IGNORE INTO watchlist (user_id, symbol) VALUES (?, ?)',
-                [userId, normalized]
+                [toArg(userId), toArg(normalized)]
             );
         } else {
-            db.run('DELETE FROM watchlist WHERE user_id = ? AND symbol = ?', [userId, normalized]);
+            await db.run('DELETE FROM watchlist WHERE user_id = ? AND symbol = ?', [
+                toArg(userId),
+                toArg(normalized),
+            ]);
         }
-        return { success: true, watchlist: this.getWatchlist(userId) };
+
+        return { success: true, watchlist: await this.getWatchlist(userId) };
     }
 
-    updatePreferences(userId, preferences) {
-        const current = db.get('SELECT min_confidence FROM users WHERE user_id = ?', [userId]);
+    async updatePreferences(userId, preferences) {
+        const current = await db.get(
+            'SELECT min_confidence FROM users WHERE user_id = ?',
+            [toArg(userId)]
+        );
         if (!current) return { success: false, error: 'Kullanıcı bulunamadı' };
 
         const minConfidence = preferences.minConfidence ?? current.min_confidence;
-        db.run('UPDATE users SET min_confidence = ? WHERE user_id = ?', [minConfidence, userId]);
+        await db.run('UPDATE users SET min_confidence = ? WHERE user_id = ?', [
+            toArg(minConfidence),
+            toArg(userId),
+        ]);
 
         return { success: true, preferences: { minConfidence } };
     }
 
-    updateFCMToken(userId, fcmToken) {
-        const result = db.run('UPDATE users SET fcm_token = ? WHERE user_id = ?', [fcmToken, userId]);
+    async updateFCMToken(userId, fcmToken) {
+        const result = await db.run('UPDATE users SET fcm_token = ? WHERE user_id = ?', [
+            toArg(fcmToken),
+            toArg(userId),
+        ]);
         return { success: result.changes > 0 };
     }
 
-    getFCMToken(userId) {
-        const user = db.get('SELECT fcm_token FROM users WHERE user_id = ?', [userId]);
+    async getFCMToken(userId) {
+        const user = await db.get('SELECT fcm_token FROM users WHERE user_id = ?', [
+            toArg(userId),
+        ]);
         return user ? user.fcm_token : null;
     }
 
