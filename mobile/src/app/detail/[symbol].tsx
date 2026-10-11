@@ -39,6 +39,17 @@ interface AnalysisData {
   overall: { action: string; confidence: number };
 }
 
+function fmt(value: any, decimals = 2): string {
+  if (value === null || value === undefined) return '—';
+  if (typeof value === 'object') {
+    const nested = Object.values(value)[0];
+    if (typeof nested === 'number') return nested.toFixed(decimals);
+    return '—';
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) return '—';
+  return value.toFixed(decimals);
+}
+
 function IndicatorTile({ label, value, hint, color }: any) {
   return (
     <View style={styles.tile}>
@@ -348,24 +359,24 @@ export default function DetailScreen() {
         <View style={styles.grid}>
           <IndicatorTile
             label="RSI (14)"
-            value={ind.rsi?.toFixed(1)}
+            value={fmt(ind.rsi, 1)}
             hint={ind.rsi > 70 ? 'Aşırı alım' : ind.rsi < 30 ? 'Aşırı satım' : 'Normal'}
             color={ind.rsi > 70 ? colors.red : ind.rsi < 30 ? colors.green : colors.textPrimary}
           />
           <IndicatorTile
             label="STOCH %K"
-            value={ind.stochastic?.k?.toFixed(0)}
+            value={fmt(ind.stochastic?.k, 0)}
             hint={ind.stochastic?.k > 80 ? 'Aşırı alım' : ind.stochastic?.k < 20 ? 'Aşırı satım' : 'Normal'}
             color={ind.stochastic?.k > 80 ? colors.red : ind.stochastic?.k < 20 ? colors.green : colors.textPrimary}
           />
           <IndicatorTile
             label="WILLIAMS %R"
-            value={ind.williamsR?.toFixed(0)}
+            value={fmt(ind.williamsR, 0)}
             color={colors.textPrimary}
           />
           <IndicatorTile
             label="CCI (20)"
-            value={ind.cci?.toFixed(0)}
+            value={fmt(ind.cci, 0)}
             color={ind.cci > 100 ? colors.red : ind.cci < -100 ? colors.green : colors.textPrimary}
           />
         </View>
@@ -374,11 +385,11 @@ export default function DetailScreen() {
       <View style={styles.section}>
         <SectionHeader title="Trend" subtitle={trend.label} />
         <View style={styles.grid}>
-          <IndicatorTile label="SMA 20" value={ind.sma20?.toFixed(2)} />
-          <IndicatorTile label="EMA 20" value={ind.ema20?.toFixed(2)} />
+          <IndicatorTile label="SMA 20" value={fmt(ind.sma20, 2)} />
+          <IndicatorTile label="EMA 20" value={fmt(ind.ema20, 2)} />
           <IndicatorTile
             label="ADX"
-            value={ind.adx?.toFixed(0)}
+            value={fmt(ind.adx, 0)}
             hint={ind.adx > 25 ? 'Güçlü trend' : 'Zayıf trend'}
             color={ind.adx > 25 ? colors.blue : colors.textPrimary}
           />
@@ -414,23 +425,23 @@ export default function DetailScreen() {
         <View style={styles.levelsCard}>
           <View style={styles.levelRow}>
             <Text style={styles.levelLabel}>Direnç</Text>
-            <Text style={[styles.levelValue, { color: colors.red }]}>
+<Text style={[styles.levelValue, { color: colors.red }]}>
               {levels.resistances?.length
-                ? levels.resistances.map((r: number) => r.toFixed(2)).join('  ·  ')
+                ? levels.resistances.map((r: any) => fmt(r, 2)).join('  ·  ')
                 : '—'}
             </Text>
           </View>
           <View style={styles.currentRow}>
             <Text style={styles.levelLabel}>Güncel</Text>
-            <Text style={[styles.levelValue, { color: colors.accent }]}>
-              {analysis.currentPrice?.toFixed(2)}
+<Text style={[styles.levelValue, { color: colors.accent }]}>
+              {fmt(analysis.currentPrice, 2)}
             </Text>
           </View>
           <View style={styles.levelRow}>
             <Text style={styles.levelLabel}>Destek</Text>
-            <Text style={[styles.levelValue, { color: colors.green }]}>
+<Text style={[styles.levelValue, { color: colors.green }]}>
               {levels.supports?.length
-                ? levels.supports.map((s: number) => s.toFixed(2)).join('  ·  ')
+                ? levels.supports.map((s: any) => fmt(s, 2)).join('  ·  ')
                 : '—'}
             </Text>
           </View>
@@ -697,4 +708,5 @@ const styles = StyleSheet.create({
   },
   disclaimerText: { fontSize: 11, color: colors.amber, lineHeight: 16 },
 });
+
 

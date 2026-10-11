@@ -27,30 +27,40 @@ export function CandlestickChart({
   const chart = useMemo(() => {
     if (!candles || candles.length < 2) return null;
 
+    const valid = candles.filter(
+      c =>
+        c && typeof c.close === 'number' && Number.isFinite(c.close) &&
+        typeof c.high === 'number' && Number.isFinite(c.high) &&
+        typeof c.low === 'number' && Number.isFinite(c.low)
+    );
+
+    if (valid.length < 2) return null;
+
     const padding = { top: 8, right: 44, bottom: showVolume ? 18 : 22, left: 6 };
     const volumeZone = showVolume ? height * 0.18 : 0;
     const priceHeight = height - padding.top - padding.bottom - volumeZone;
 
-    const highs = candles.map(c => c.high);
-    const lows = candles.map(c => c.low);
+    const highs = valid.map(c => c.high);
+    const lows = valid.map(c => c.low);
     const max = Math.max(...highs);
     const min = Math.min(...lows);
     const range = max - min || 1;
 
     const innerWidth = width - padding.left - padding.right;
-    const step = innerWidth / candles.length;
+    const step = innerWidth / valid.length;
     const bodyWidth = Math.max(1.5, Math.min(step * 0.62, 12));
 
     const xFor = (i: number) => padding.left + step * i + step / 2;
     const yFor = (price: number) =>
       padding.top + priceHeight - ((price - min) / range) * priceHeight;
 
-    const maxVolume = Math.max(...candles.map(c => c.volume)) || 1;
+    const maxVolume = Math.max(...valid.map(c => c.volume || 0)) || 1;
     const volBase = height - padding.bottom;
 
-    const shapes = candles.map((c, i) => {
+    const shapes = valid.map((c, i) => {
       const x = xFor(i);
-      const openY = yFor(c.open);
+      const open = typeof c.open === 'number' && Number.isFinite(c.open) ? c.open : c.close;
+      const openY = yFor(open);
       const closeY = yFor(c.close);
       const highY = yFor(c.high);
       const lowY = yFor(c.low);
@@ -58,7 +68,7 @@ export function CandlestickChart({
       const bodyTop = Math.min(openY, closeY);
       const bodyHeight = Math.max(Math.abs(closeY - openY), 1);
 
-      const volHeight = (c.volume / maxVolume) * volumeZone;
+      const volHeight = ((c.volume || 0) / maxVolume) * volumeZone;
 
       return { x, bodyTop, bodyHeight, highY, lowY, bodyWidth, volHeight, bullish: c.bullish };
     });
@@ -68,10 +78,10 @@ export function CandlestickChart({
       value: max - range * ratio,
     }));
 
-    const last = candles[candles.length - 1];
+    const last = valid[valid.length - 1];
     const lastY = yFor(last.close);
 
-    return { shapes, gridLines, lastY, xFor, yFor, padding, priceHeight, volumeZone, min, max };
+    return { shapes, gridLines, lastY, padding, priceHeight, volumeZone };
   }, [candles, width, height, showVolume]);
 
   if (!chart) {

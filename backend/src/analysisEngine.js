@@ -139,7 +139,11 @@ class AnalysisEngine {
         const ema20 = this.calculateEMA(closes, 20);
         const bb = this.calculateBollingerBands(closes);
         const stoch = this.calculateStochastic(closes, highs, lows);
-        const adx = this.calculateADX(highs, lows, closes);
+        const adxRaw = this.calculateADX(highs, lows, closes);
+        const adxLast = adxRaw[adxRaw.length - 1] || {};
+        const adxValue = adxLast.adx ?? null;
+        const pdi = adxLast.pdi ?? null;
+        const mdi = adxLast.mdi ?? null;
         const obv = this.calculateOBV(closes, volumes);
         const wr = this.calculateWilliamsR(closes, highs, lows);
         const cci = this.calculateCCI(highs, lows, closes);
@@ -156,7 +160,9 @@ class AnalysisEngine {
             macd: macd[macd.length - 1],
             previousMacd: macd[macd.length - 2],
             stoch: stoch[stoch.length - 1],
-            adx: adx[adx.length - 1],
+            adx: adxValue,
+            pdi,
+            mdi,
             williamsR: wr[wr.length - 1],
             cci: cci[cci.length - 1],
             currentSMA: sma20[sma20.length - 1],
@@ -179,7 +185,9 @@ class AnalysisEngine {
                 ema20: ema20[ema20.length - 1],
                 bollingerBands: bb[bb.length - 1],
                 stochastic: stoch[stoch.length - 1],
-                adx: adx[adx.length - 1],
+                adx: adxValue,
+                pdi,
+                mdi,
                 williamsR: wr[wr.length - 1],
                 cci: cci[cci.length - 1],
                 obvTrend: this.detectObvTrend(obv, closes),
