@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,8 @@ import { useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../services/api';
 import { PriceChart, MovingAverageLine } from '../../components/PriceChart';
-import { colors, spacing, radius, typography, shadows } from '../../theme';
+import { CandlestickChart, PatternBadge } from '../../components/CandlestickChart';
+import { colors, spacing, radius, typography } from '../../theme';
 import {
   AnimatedNumber,
   ChangeBadge,
@@ -142,21 +143,35 @@ export default function DetailScreen() {
     );
   }
 
-  if (!analysis) {
+  if (!analysis || !analysis.currentPrice) {
     return (
       <View style={styles.container}>
         <View style={styles.center}>
           <Text style={styles.emptyText}>Veri bulunamadi</Text>
+          <Pressable onPress={load} style={styles.retryBtn}>
+            <Text style={styles.retryText}>Tekrar Dene</Text>
+          </Pressable>
         </View>
       </View>
     );
   }
 
-  const ind = analysis.indicators;
-  const score = analysis.score;
+  const ind = (analysis.indicators || {}) as any;
+  const score = analysis.score || {
+    score: 50, direction: 'BEKLE', buyPoints: 0, sellPoints: 0, strongSignals: 0,
+  };
+  const trend = analysis.trend || { label: 'BELIRSIZ', factors: [], slope: 0 };
+  const levels = analysis.levels || { supports: [], resistances: [] };
+  const volatility = analysis.volatility || { label: 'BILINMIYOR', annualized: '0' };
+  const volumeProfile = analysis.volumeProfile || { label: 'BILINMIYOR', ratio: '0' };
+  const risk = analysis.risk || { level: 'BILINMIYOR', factors: [] };
+  const candles = (analysis as any).candles || null;
+  const signals = analysis.signals || [];
+
+  const riskLevel = String(risk.level || '');
   const riskColor =
-    analysis.risk.level === 'YÜKSEK' ? colors.red
-      : analysis.risk.level === 'ORTA' ? colors.amber : colors.green;
+    riskLevel.indexOf('YÜKSEK') === 0 || riskLevel === 'YUKSEK' ? colors.red
+      : riskLevel.indexOf('ORTA') === 0 ? colors.amber : colors.green;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -176,10 +191,10 @@ export default function DetailScreen() {
         <View style={styles.heroBadges}>
           <SignalPill action={analysis.overall.action} confidence={analysis.overall.confidence} />
           <View style={[styles.trendBadge, { borderColor: colors.border }]}>
-            <Text style={styles.trendText}>{analysis.trend.label}</Text>
+            <Text style={styles.trendText}>{trend.label}</Text>
           </View>
           <View style={[styles.trendBadge, { borderColor: riskColor }]}>
-            <Text style={[styles.trendText, { color: riskColor }]}>Risk: {analysis.risk.level}</Text>
+            <Text style={[styles.trendText, { color: riskColor }]}>Risk: {risk.level}</Text>
           </View>
         </View>
 
@@ -223,6 +238,111 @@ export default function DetailScreen() {
         </View>
       </View>
 
+{candles && candles.candles && candles.candles.length > 0 && (
+        <View style={styles.section}>
+          <SectionHeader
+            title="Mum Analizi"
+            subtitle={candles.summary?.bias || 'Trader okumasi'}
+          />
+
+          <View style={styles.biasCard}>
+            <View style={styles.biasHeader}>
+              <View>
+                <Text style={styles.biasLabel}>Mum Eğilimi</Text>
+                <Text
+                  style={[
+                    styles.biasValue,
+                    {
+                      color:
+                        candles.biasScore >= 65
+                          ? colors.green
+                          : candles.biasScore <= 35
+                            ? colors.red
+                            : colors.amber,
+                    },
+                  ]}
+                >
+                  {candles.biasScore}/100
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.trendBadge,
+                  {
+                    borderColor:
+                      candles.shortTermTrend === 'YUKARI'
+                        ? colors.greenBorder
+                        : candles.shortTermTrend === 'AŞAĞI'
+                          ? colors.redBorder
+                          : colors.amberBorder,
+                  },
+                ]}
+              >
+                <Text style={styles.trendText}>{candles.shortTermTrend}</Text>
+              </View>
+            </View>
+            <Text style={styles.biasSummary}>{candles.summary?.text}</Text>
+          </View>
+
+          <View style={styles.candleChartBox}>
+            <CandlestickChart
+              candles={candles.candles}
+              width={CHART_WIDTH - spacing.lg * 2}
+              height={260}
+            />
+          </View>
+
+          {candles.currentPattern && (
+            <View style={styles.patternSection}>
+              <Text style={styles.patternTitle}>Son Mum Formasyonu</Text>
+              <PatternBadge
+                name={candles.currentPattern.name}
+                bias={candles.currentPattern.bias}
+                strength={candles.currentPattern.strength}
+              />
+              <Text style={styles.patternDesc}>
+                {candles.currentPattern.description}
+              </Text>
+            </View>
+          )}
+
+          {candles.consecutive && (
+            <View style={styles.patternSection}>
+              <Text style={styles.patternTitle}>Ardisik Hareket</Text>
+              <PatternBadge
+                name={candles.consecutive.pattern}
+                bias={candles.consecutive.bias}
+                strength={candles.consecutive.strength}
+              />
+            </View>
+          )}
+
+          <Text style={styles.patternTitle}>Tespit Edilen Kaliplar</Text>
+          <View style={styles.patternList}>
+            {candles.patterns.slice(0, 6).map((p: any, i: number) => (
+              <View key={i} style={styles.patternRow}>
+                <PatternBadge
+                  name={p.name}
+                  bias={p.bias}
+                  strength={p.strength}
+                />
+                <Text style={styles.patternDate}>{p.date}</Text>
+              </View>
+            ))}
+          </View>
+
+          {candles.volume && (
+            <View style={styles.volumeCard}>
+              <Text style={styles.patternTitle}>Hacim Dogrulamasi</Text>
+              <Text style={styles.volumeLabel}>{candles.volume.label}</Text>
+              <Text style={styles.volumeRatio}>
+                Ortalama hacim orani: {candles.volume.ratio}x
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
       <View style={styles.section}>
         <SectionHeader title="Osilatörler" subtitle="Kısa vadeli alım-satım durumu" />
         <View style={styles.grid}>
@@ -252,7 +372,7 @@ export default function DetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Trend" subtitle={analysis.trend.label} />
+        <SectionHeader title="Trend" subtitle={trend.label} />
         <View style={styles.grid}>
           <IndicatorTile label="SMA 20" value={ind.sma20?.toFixed(2)} />
           <IndicatorTile label="EMA 20" value={ind.ema20?.toFixed(2)} />
@@ -269,18 +389,18 @@ export default function DetailScreen() {
       <View style={styles.section}>
         <SectionHeader
           title="Risk"
-          subtitle={`Volatilite: ${analysis.volatility.label} · ${analysis.volatility.annualized}% yıllık`}
+          subtitle={`Volatilite: ${volatility.label} · ${volatility.annualized}% yıllık`}
         />
         <View style={styles.card}>
           <View style={styles.riskHeader}>
             <View style={[styles.riskBadge, { backgroundColor: riskColor + '20', borderColor: riskColor }]}>
-              <Text style={[styles.riskBadgeText, { color: riskColor }]}>{analysis.risk.level}</Text>
+              <Text style={[styles.riskBadgeText, { color: riskColor }]}>{risk.level}</Text>
             </View>
             <View style={[styles.statChip, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
-              <Text style={styles.statChipText}>{analysis.volumeProfile.label}</Text>
+              <Text style={styles.statChipText}>{volumeProfile.label}</Text>
             </View>
           </View>
-          {analysis.risk.factors.map((f: any, i: number) => (
+          {risk.factors.map((f: any, i: number) => (
             <View key={i} style={styles.riskFactor}>
               <Text style={styles.riskBullet}>•</Text>
               <Text style={styles.riskText}>{f.reason}</Text>
@@ -295,8 +415,8 @@ export default function DetailScreen() {
           <View style={styles.levelRow}>
             <Text style={styles.levelLabel}>Direnç</Text>
             <Text style={[styles.levelValue, { color: colors.red }]}>
-              {analysis.levels.resistances?.length
-                ? analysis.levels.resistances.map((r: number) => r.toFixed(2)).join('  ·  ')
+              {levels.resistances?.length
+                ? levels.resistances.map((r: number) => r.toFixed(2)).join('  ·  ')
                 : '—'}
             </Text>
           </View>
@@ -309,8 +429,8 @@ export default function DetailScreen() {
           <View style={styles.levelRow}>
             <Text style={styles.levelLabel}>Destek</Text>
             <Text style={[styles.levelValue, { color: colors.green }]}>
-              {analysis.levels.supports?.length
-                ? analysis.levels.supports.map((s: number) => s.toFixed(2)).join('  ·  ')
+              {levels.supports?.length
+                ? levels.supports.map((s: number) => s.toFixed(2)).join('  ·  ')
                 : '—'}
             </Text>
           </View>
@@ -318,8 +438,8 @@ export default function DetailScreen() {
       </View>
 
       <View style={styles.section}>
-        <SectionHeader title="Sinyaller" subtitle={`${analysis.signals.length} bulundu`} />
-        {analysis.signals.length === 0 ? (
+        <SectionHeader title="Sinyaller" subtitle={`${signals.length} bulundu`} />
+        {signals.length === 0 ? (
           <Text style={styles.emptyText}>Belirgin sinyal yok</Text>
         ) : (
           analysis.signals.map((signal, i) => <SignalRow key={i} signal={signal} />)
@@ -499,6 +619,74 @@ const styles = StyleSheet.create({
   signalCategory: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' },
   signalReason: { ...typography.caption, color: colors.textSecondary, marginTop: 3, lineHeight: 17 },
 
+  biasCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  biasHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  biasLeft: { alignItems: 'flex-start' },
+  biasLabel: { fontSize: 11, color: colors.textTertiary },
+  biasValue: { fontSize: 22, fontWeight: '800' },
+  biasSummary: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  candleChartBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  patternSection: { marginTop: spacing.lg },
+  patternTitle: {
+    ...typography.subheading,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  patternDesc: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    lineHeight: 18,
+  },
+  patternList: { gap: spacing.sm },
+  patternRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  patternDate: { fontSize: 10, color: colors.textTertiary },
+  volumeCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: spacing.lg,
+  },
+  volumeLabel: { ...typography.body, color: colors.textPrimary },
+  volumeRatio: { fontSize: 11, color: colors.textTertiary, marginTop: 4 },
+
+  retryBtn: {
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+  },
+  retryText: { color: colors.textInverse, fontWeight: '700' },
+
   disclaimer: {
     margin: spacing.lg,
     padding: spacing.md,
@@ -509,3 +697,4 @@ const styles = StyleSheet.create({
   },
   disclaimerText: { fontSize: 11, color: colors.amber, lineHeight: 16 },
 });
+

@@ -3,6 +3,7 @@ const dataFetcher = require('./dataFetcher');
 const analysisEngine = require('./analysisEngine');
 const marketCache = require('./marketCacheService');
 const realtime = require('./realtimeServer');
+const candleAnalyzer = require('./candleAnalyzer');
 
 class MarketPublisher {
     constructor() {
@@ -73,9 +74,10 @@ class MarketPublisher {
                 const historical = await dataFetcher.fetchHistorical(symbol, '1y', '1d');
                 if (!historical || historical.length < 30) continue;
 
-                const analysis = analysisEngine.analyze(historical);
+const analysis = analysisEngine.analyze(historical);
                 const overall = analysisEngine.getOverallSignal(analysis.signals || []);
-                const payload = { ...analysis, overall };
+                const candles = candleAnalyzer.analyzeCandles(historical);
+                const payload = { ...analysis, overall, candles };
 
                 await marketCache.saveAnalysis(symbol, payload);
                 results[symbol] = payload;

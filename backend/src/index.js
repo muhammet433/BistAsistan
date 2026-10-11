@@ -13,6 +13,7 @@ const notificationHistory = require('./notificationHistoryService');
 const marketCache = require('./marketCacheService');
 const marketPublisher = require('./marketPublisher');
 const realtime = require('./realtimeServer');
+const candleAnalyzer = require('./candleAnalyzer');
 const db = require('./database');
 
 notificationService.initialize();
@@ -127,7 +128,7 @@ app.get('/api/analyze/:symbol', async (req, res) => {
     const symbol = req.params.symbol.toUpperCase();
 
     try {
-        const cached = await marketCache.getAnalysis(symbol, 30);
+        const cached = await marketCache.getAnalysis(symbol, 1);
         if (cached) {
             return res.json({ success: true, data: cached, meta: { cached: true } });
         }
@@ -139,12 +140,31 @@ app.get('/api/analyze/:symbol', async (req, res) => {
 
         const analysis = analysisEngine.analyze(historical);
         const overall = analysisEngine.getOverallSignal(analysis.signals || []);
-        const payload = { ...analysis, overall };
+        const candles = candleAnalyzer.analyzeCandles(historical);
+        const payload = { ...analysis, overall, candles };
 
         await marketCache.saveAnalysis(symbol, payload);
         realtime.broadcastSignal(symbol, payload);
 
         res.json({ success: true, data: payload, meta: { cached: false } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/candles/:symbol', async (req, res) => {
+    const symbol = req.params.symbol.toUpperCase();
+
+    try {
+        const { period = '6mo' } = req.query;
+        const historical = await dataFetcher.fetchHistorical(symbol, period, '1d');
+
+        if (!historical || historical.length < 30) {
+            return res.status(404).json({ success: false, error: 'Yetersiz veri' });
+        }
+
+        const result = candleAnalyzer.analyzeCandles(historical);
+        res.json({ success: true, data: result });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
