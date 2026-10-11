@@ -202,7 +202,7 @@ export default function WatchlistScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Takip listesi yukleniyor</Text>
@@ -212,7 +212,7 @@ export default function WatchlistScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
 
   list: {
     padding: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: 100,
   },
   card: {
     backgroundColor: colors.surface,
@@ -409,3 +409,5 @@ const styles = StyleSheet.create({
   price: { ...typography.title },
   tryLabel: { fontSize: 11, color: colors.textTertiary, marginTop: -2 },
 });
+
+

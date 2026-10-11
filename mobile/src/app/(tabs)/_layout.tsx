@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View, ColorValue } from 'react-native';
+import { StyleSheet, View, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, shadows } from '../../theme';
+import { colors } from '../../theme';
 
 function TabIcon({
   name,
@@ -99,13 +99,11 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.surface,
+    backgroundColor: colors.surface,
     borderTopColor: colors.border,
     borderTopWidth: 1,
-    height: Platform.OS === 'ios' ? 84 : 64,
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
-    ...shadows.card,
+    height: 64,
     elevation: 12,
   },
   tabItem: {

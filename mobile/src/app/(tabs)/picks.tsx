@@ -155,7 +155,7 @@ export default function TopPicksScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Hisseler taranıyor</Text>
@@ -166,7 +166,7 @@ export default function TopPicksScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Fırsatlar</Text>
         {meta && (
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
   filterTextActive: { color: colors.textInverse },
 
-  list: { padding: spacing.md, paddingBottom: spacing.xxxl },
+  list: { padding: spacing.md, paddingBottom: 100 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -317,3 +317,5 @@ const styles = StyleSheet.create({
   },
   warnText: { fontSize: 11, fontWeight: '700', color: colors.red },
 });
+
+

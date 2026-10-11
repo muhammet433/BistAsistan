@@ -110,7 +110,7 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
@@ -119,7 +119,7 @@ export default function HistoryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   refreshIcon: { color: colors.accent, fontSize: 18, fontWeight: '700' },
 
-  list: { padding: spacing.md, paddingBottom: spacing.xxxl },
+  list: { padding: spacing.md, paddingBottom: 100 },
   card: {
     flexDirection: 'row',
     gap: spacing.md,
@@ -218,3 +218,5 @@ const styles = StyleSheet.create({
   body: { ...typography.caption, color: colors.textSecondary, marginTop: 6, lineHeight: 18 },
   date: { fontSize: 10, color: colors.textTertiary, marginTop: 8 },
 });
+
+

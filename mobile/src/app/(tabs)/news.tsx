@@ -92,7 +92,7 @@ export default function NewsScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
@@ -101,7 +101,7 @@ export default function NewsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Haberler</Text>
         <Text style={styles.subtitle}>{news.length} baslik</Text>
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   },
   title: { ...typography.title, color: colors.textPrimary },
   subtitle: { ...typography.caption, color: colors.textTertiary, marginTop: 2 },
-  list: { padding: spacing.md, paddingBottom: spacing.xxxl },
+  list: { padding: spacing.md, paddingBottom: 100 },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
@@ -168,3 +168,5 @@ const styles = StyleSheet.create({
   articleTitle: { ...typography.subheading, color: colors.textPrimary, lineHeight: 21 },
   summary: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm, lineHeight: 18 },
 });
+
+

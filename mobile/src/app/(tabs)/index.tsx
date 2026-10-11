@@ -211,7 +211,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View>
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
 
   list: {
     padding: spacing.md,
-    paddingBottom: spacing.xxxl,
+    paddingBottom: 100,
   },
   card: {
     flexDirection: 'row',
@@ -470,4 +470,6 @@ const styles = StyleSheet.create({
     color: colors.amber,
   },
 });
+
+
 

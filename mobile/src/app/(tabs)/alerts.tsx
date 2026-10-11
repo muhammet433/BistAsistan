@@ -104,7 +104,7 @@ export default function AlertsScreen() {
   const metricLabel = (m: MetricType) => (m === 'PRICE' ? 'Fiyat' : 'RSI');
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={styles.title}>Alarmlar</Text>
@@ -274,7 +274,7 @@ function AlertRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingBottom: spacing.xxxl },
+  content: { paddingBottom: 100 },
   header: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -381,3 +381,5 @@ const styles = StyleSheet.create({
   },
   deleteIcon: { color: colors.red, fontSize: 18, fontWeight: '700', lineHeight: 20 },
 });
+
+

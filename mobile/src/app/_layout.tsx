@@ -1,8 +1,11 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useImmersiveMode } from '../hooks/useImmersiveMode';
 
 export default function RootLayout() {
+  useImmersiveMode(true);
+
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
