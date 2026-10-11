@@ -176,8 +176,11 @@ class AnalysisEngine {
             signals, trend, risk, volatility, currentRSI: rsi[rsi.length - 1],
         });
 
+        const overall = this.getOverallSignal(signals);
+
         return {
             currentPrice,
+            headline: this.plainLanguage({ overall, score, trend, risk }),
             indicators: {
                 rsi: rsi[rsi.length - 1],
                 macd: macd[macd.length - 1],
@@ -198,7 +201,9 @@ class AnalysisEngine {
             volumeProfile,
             risk,
             score,
+            overall,
             signals,
+            keySignals: this.simplify(signals),
             timestamp: new Date().toISOString(),
         };
     }
@@ -424,11 +429,59 @@ class AnalysisEngine {
         const total = buyScore + sellScore;
         if (total === 0) return { action: 'HOLD', confidence: 0 };
 
-        const confidence = Math.abs(buyScore - sellScore) / total * 100;
+        const ratio = buyScore / total;
+        const confidence = Math.abs(ratio - 0.5) * 2 * 100;
 
-        if (buyScore > sellScore * 1.5) return { action: 'BUY', confidence };
-        if (sellScore > buyScore * 1.5) return { action: 'SELL', confidence };
+        if (ratio >= 0.65) return { action: 'BUY', confidence };
+        if (ratio <= 0.35) return { action: 'SELL', confidence };
         return { action: 'HOLD', confidence };
+    }
+
+    simplify(signals) {
+        const actionable = signals.filter(s => s.type !== 'INFO');
+        if (actionable.length === 0) return [];
+
+        const strong = actionable.filter(s => s.strength === 'STRONG');
+        if (strong.length > 0) return strong.slice(0, 2);
+
+        const buys = actionable.filter(s => s.type === 'BUY').length;
+        const sells = actionable.filter(s => s.type === 'SELL').length;
+
+        const dominant = buys >= sells ? 'BUY' : 'SELL';
+        return actionable
+            .filter(s => s.type === dominant)
+            .slice(0, 2);
+    }
+
+    plainLanguage(analysis) {
+        const dir = analysis.overall.action;
+        const score = analysis.score.score;
+        const trend = analysis.trend.label;
+        const risk = analysis.risk.level;
+
+        let headline;
+        if (dir === 'BUY' && score >= 70) headline = 'Güçlü alış görünümü';
+        else if (dir === 'BUY') headline = 'Hafif alış görünümü';
+        else if (dir === 'SELL' && score <= 30) headline = 'Güçlü satış görünümü';
+        else if (dir === 'SELL') headline = 'Hafif satış görünümü';
+        else headline = 'Yön belirsiz, beklemede kal';
+
+        const trendText = {
+            'GÜÇLÜ YUKARI': 'yükseliş trendi var',
+            'YUKARI': 'yukarı eğilim var',
+            'YATAY': 'yatay seyrediyor',
+            'AŞAĞI': 'aşağı eğilim var',
+            'GÜÇLÜ AŞAĞI': 'düşüş trendi güçlü',
+            'BELIRSIZ': 'belirsiz',
+        }[trend] || 'belirsiz';
+
+        const riskText =
+            risk === 'YÜKSEK' ? 'Risk yüksek, dikkatli ol'
+                : risk === 'ORTA' ? 'Risk orta seviyede'
+                    : risk === 'DÜŞÜK' ? 'Risk düşük görünüyor'
+                        : '';
+
+        return `${headline}. ${trendText.charAt(0).toUpperCase() + trendText.slice(1)}. ${riskText}.`;
     }
 }
 

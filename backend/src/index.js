@@ -191,23 +191,55 @@ async function analyzeSymbol(symbol) {
     return { ...analysis, overall, candles };
 }
 
+async function waitForQuotes(timeoutMs = 120000) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+        const quotes = await marketCache.getQuotes();
+        if (quotes.length > 10) return quotes;
+        await new Promise(r => setTimeout(r, 3000));
+    }
+    return await marketCache.getQuotes();
+}
+
+async function scanAll() {
+    const quotes = await waitForQuotes();
+    if (quotes.length === 0) {
+        return { scanned: 0, bestTen: [], top: [], bestBuys: [], healthyPicks: [], healthyBuys: [], generatedAt: new Date().toISOString(), durationMs: 0 };
+    }
+
+    const symbols = quotes.map(q => q.symbol);
+
+    return scanner.runScan(symbols, {
+        historical: (symbol) => dataFetcher.fetchHistorical(symbol, '1y', '1d'),
+        analyze: (historical) => analysisEngine.analyze(historical),
+        analyzeCandles: (historical) => candleAnalyzer.analyzeCandles(historical),
+    });
+}
+
 app.get('/api/top-picks', async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 20;
-        const filter = req.query.filter || 'top';
+        const limit = parseInt(req.query.limit) || 10;
+        const filter = req.query.filter || 'ten';
 
-        let data = scanner.getCached();
+        let data = await scanner.getCached();
 
         if (!data) {
-            const quotes = await marketCache.getQuotes();
-            const symbols = quotes.map(q => q.symbol);
-            data = await scanner.runScan(symbols, analyzeSymbol);
+            data = await scanAll();
         }
 
-        let picks = data.top;
-        if (filter === 'buy') picks = data.bestBuys;
-        else if (filter === 'healthy') picks = data.healthyPicks;
-        else if (filter === 'healthyBuy') picks = data.healthyBuys;
+        if (!data) {
+            return res.status(503).json({ success: false, error: 'Tarama devam ediyor' });
+        }
+
+        const pools = {
+            ten: data.bestTen,
+            top: data.top,
+            buy: data.bestBuys,
+            healthy: data.healthyPicks,
+            healthyBuy: data.healthyBuys,
+        };
+
+        const picks = pools[filter] || data.bestTen;
 
         res.json({
             success: true,
@@ -215,8 +247,8 @@ app.get('/api/top-picks', async (req, res) => {
             meta: {
                 generatedAt: data.generatedAt,
                 scanned: data.scanned,
-                totalBuys: data.bestBuys.length,
-                totalHealthyBuys: data.healthyBuys.length,
+                durationMs: data.durationMs,
+                totalBuys: data.bestBuys?.length || 0,
             },
         });
     } catch (error) {
@@ -226,10 +258,11 @@ app.get('/api/top-picks', async (req, res) => {
 
 app.post('/api/scan', async (req, res) => {
     try {
-        const quotes = await marketCache.getQuotes();
-        const symbols = quotes.map(q => q.symbol);
-        const data = await scanner.runScan(symbols, analyzeSymbol);
-        res.json({ success: true, data: { scanned: data.scanned, generatedAt: data.generatedAt } });
+        const data = await scanAll();
+        res.json({
+            success: true,
+            data: { scanned: data.scanned, generatedAt: data.generatedAt, durationMs: data.durationMs },
+        });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -525,6 +558,21 @@ async function bootstrap() {
 
     marketPublisher.start();
     console.log(`[Baslangic] Sunucu ${port || 3000} portunda hazir`);
+
+    const cachedScan = await scanner.getCached().catch(() => null);
+    if (cachedScan) {
+        console.log(`[Baslangic] Tarama onbellegi hazir (${cachedScan.scanned} hisse)`);
+    } else {
+        setTimeout(() => {
+            scanAll()
+                .then(d => console.log(`[Baslangic] Tarama tamam: ${d.scanned} hisse`))
+                .catch(e => console.error('[Baslangic] Tarama hatasi:', e.message));
+        }, 8000);
+    }
+
+    setInterval(() => {
+        scanAll().catch(() => {});
+    }, 30 * 60 * 1000);
 }
 
 bootstrap();
