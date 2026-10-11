@@ -14,7 +14,7 @@
     },
     "android": {
       "package": "com.bistanaliz.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#080B14",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -30,7 +30,7 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-"plugins": [
+    "plugins": [
       "expo-router",
       "expo-status-bar",
       "react-native-edge-to-edge",
@@ -43,6 +43,15 @@
     ],
     "experiments": {
       "edgeToEdgeEnabled": true
+    },
+    "extra": {
+      "apiHost": "bistasistan-production.up.railway.app"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ac12b7c9-95d5-47d2-a5dd-5a7898cdaed7"
+      }
     }
   }
 }

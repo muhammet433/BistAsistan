@@ -1,7 +1,9 @@
 import { Platform } from 'react-native';
 
+const PRODUCTION_API_URL = 'https://bistasistan-production.up.railway.app';
+
 function resolveHost(): { host: string; secure: boolean } {
-  const configured = process.env.EXPO_PUBLIC_API_HOST;
+  const configured = process.env.EXPO_PUBLIC_API_HOST || PRODUCTION_API_URL;
 
   if (configured) {
     const cleaned = configured.replace(/^(https?):\/\//, '');
