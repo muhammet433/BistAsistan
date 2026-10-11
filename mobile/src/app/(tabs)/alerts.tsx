@@ -1,32 +1,31 @@
-import { useState, useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../services/api';
+import { colors, spacing, radius, typography, shadows } from '../../theme';
+import { EmptyState } from '../../components/ui';
+
+type MetricType = 'PRICE' | 'RSI';
+type Direction = 'ABOVE' | 'BELOW';
 
 interface AlertItem {
   id: string;
   symbol: string;
-  condition: {
-    type: 'PRICE' | 'RSI';
-    direction: 'ABOVE' | 'BELOW';
-    threshold: number;
-  };
+  condition: { type: MetricType; direction: Direction; threshold: number };
   active: boolean;
-  createdAt: string;
 }
-
-type MetricType = 'PRICE' | 'RSI';
-type Direction = 'ABOVE' | 'BELOW';
 
 export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
@@ -34,18 +33,19 @@ export default function AlertsScreen() {
   const [metric, setMetric] = useState<MetricType>('PRICE');
   const [direction, setDirection] = useState<Direction>('ABOVE');
   const [threshold, setThreshold] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
-const userId = async () => {
+  const getUserId = useCallback(async () => {
     const raw = await AsyncStorage.getItem('user');
     if (!raw) return null;
     return JSON.parse(raw).userId as string;
-  };
+  }, []);
 
-  const loadAlerts = useCallback(async () => {
-    const id = await userId();
+  const load = useCallback(async () => {
+    const id = await getUserId();
     if (!id) {
-      Alert.alert('Giriş Gerekli', 'Alarm oluşturmak için giriş yapmalısınız.');
+      router.replace('/auth');
       return;
     }
     try {
@@ -54,28 +54,22 @@ const userId = async () => {
     } catch {
       setAlerts([]);
     }
-  }, []);
+  }, [getUserId, router]);
 
   useFocusEffect(
-    useCallback(() => {
-      loadAlerts();
-    }, [loadAlerts])
+    React.useCallback(() => {
+      load();
+    }, [load])
   );
 
   const createAlert = async () => {
     const value = parseFloat(threshold);
-    if (!symbol.trim() || !value || value <= 0) {
-      Alert.alert('Hata', 'Hisse sembolü ve geçerli bir eşik girin.');
+    if (!symbol.trim() || !Number.isFinite(value) || value <= 0) {
+      Alert.alert('Hata', 'Hisse sembolu ve gecerli bir esik gir');
       return;
     }
 
-    const id = await userId();
-    if (!id) {
-      Alert.alert('Giriş Gerekli', 'Alarm oluşturmak için giriş yapmalısınız.');
-      return;
-    }
-
-setLoading(true);
+    setSaving(true);
     try {
       await api.createAlert(symbol.trim().toUpperCase(), {
         type: metric,
@@ -84,208 +78,306 @@ setLoading(true);
       });
       setSymbol('');
       setThreshold('');
-      Alert.alert('Başarılı', 'Alarm oluşturuldu.');
-      loadAlerts();
+      load();
     } catch {
-      Alert.alert('Hata', 'Alarm oluşturulamadı.');
+      Alert.alert('Hata', 'Alarm olusturulamadi');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const deleteAlert = async (alertId: string) => {
-    await api.deleteAlert(alertId);
-    setAlerts(prev => prev.filter(a => a.id !== alertId));
+  const removeAlert = (alertId: string) => {
+    Alert.alert('Alarmı sil', 'Bu alarm kaldirilsin mi?', [
+      { text: 'Vazgec', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          await api.deleteAlert(alertId);
+          setAlerts(prev => prev.filter(a => a.id !== alertId));
+        },
+      },
+    ]);
   };
 
   const directionLabel = (d: Direction) => (d === 'ABOVE' ? 'üstüne çıkarsa' : 'altına inerse');
   const metricLabel = (m: MetricType) => (m === 'PRICE' ? 'Fiyat' : 'RSI');
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.formCard}>
-        <Text style={styles.formTitle}>Yeni Alarm Oluştur</Text>
-
-        <Text style={styles.label}>Hisse Sembolü</Text>
-        <TextInput
-          style={styles.input}
-          value={symbol}
-          onChangeText={setSymbol}
-          placeholder="Örn: AKBNK.IS"
-          autoCapitalize="characters"
-        />
-
-        <Text style={styles.label}>Kriter</Text>
-        <View style={styles.segmentRow}>
-          {(['PRICE', 'RSI'] as MetricType[]).map(m => (
-            <TouchableOpacity
-              key={m}
-              style={[styles.segment, metric === m && styles.segmentActive]}
-              onPress={() => setMetric(m)}
-            >
-              <Text style={[styles.segmentText, metric === m && styles.segmentTextActive]}>
-                {metricLabel(m)}
-              </Text>
-            </TouchableOpacity>
-          ))}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={styles.title}>Alarmlar</Text>
+          <Text style={styles.subtitle}>Fiyat ve RSI esikleri</Text>
         </View>
 
-        <Text style={styles.label}>Koşul</Text>
-        <View style={styles.segmentRow}>
-          {(['ABOVE', 'BELOW'] as Direction[]).map(d => (
-            <TouchableOpacity
-              key={d}
-              style={[styles.segment, direction === d && styles.segmentActive]}
-              onPress={() => setDirection(d)}
-            >
-              <Text style={[styles.segmentText, direction === d && styles.segmentTextActive]}>
-                {directionLabel(d)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Yeni alarm olustur</Text>
 
-        <Text style={styles.label}>Eşik Değeri</Text>
-        <TextInput
-          style={styles.input}
-          value={threshold}
-          onChangeText={setThreshold}
-          placeholder={metric === 'PRICE' ? 'Örn: 75.50' : 'Örn: 30'}
-          keyboardType="numeric"
-        />
+          <Text style={styles.label}>Hisse sembolu</Text>
+          <TextInput
+            style={styles.input}
+            value={symbol}
+            onChangeText={setSymbol}
+            placeholder="AKBNK.IS"
+            placeholderTextColor={colors.textTertiary}
+            autoCapitalize="characters"
+            autoCorrect={false}
+          />
 
-        <TouchableOpacity
-          style={[styles.createBtn, loading && styles.createBtnDisabled]}
-          onPress={createAlert}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.createBtnText}>Alarmı Oluştur</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.listTitle}>Mevcut Alarmlar</Text>
-      {alerts.length === 0 ? (
-        <Text style={styles.emptyText}>Henüz alarm oluşturmadınız.</Text>
-      ) : (
-        alerts.map(alert => (
-          <View key={alert.id} style={styles.alertCard}>
-            <View style={styles.alertInfo}>
-              <Text style={styles.alertSymbol}>
-                {alert.symbol.replace('.IS', '')}
-              </Text>
-              <Text style={styles.alertCondition}>
-                {metricLabel(alert.condition.type)} {directionLabel(alert.condition.direction)}{' '}
-                {alert.condition.threshold}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.deleteBtn}
-              onPress={() => deleteAlert(alert.id)}
-            >
-              <Text style={styles.deleteText}>Sil</Text>
-            </TouchableOpacity>
+          <Text style={styles.label}>Kriter</Text>
+          <View style={styles.segmentRow}>
+            {(['PRICE', 'RSI'] as MetricType[]).map(m => (
+              <Pressable
+                key={m}
+                onPress={() => setMetric(m)}
+                style={[styles.segment, metric === m && styles.segmentActive]}
+              >
+                <Text style={[styles.segmentText, metric === m && styles.segmentTextActive]}>
+                  {metricLabel(m)}
+                </Text>
+              </Pressable>
+            ))}
           </View>
-        ))
-      )}
 
-      <Text style={styles.info}>
-        Alarmlar 15 dakikada bir kontrol edilir ve tetiklendiğinde uygulama
-        üzerinden bildirim gönderilir.
-      </Text>
-    </ScrollView>
+          <Text style={styles.label}>Koşul</Text>
+          <View style={styles.segmentRow}>
+            {(['ABOVE', 'BELOW'] as Direction[]).map(d => (
+              <Pressable
+                key={d}
+                onPress={() => setDirection(d)}
+                style={[
+                  styles.segment,
+                  direction === d && (d === 'ABOVE' ? styles.segmentUp : styles.segmentDown),
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    direction === d && styles.segmentTextActive,
+                  ]}
+                >
+                  {d === 'ABOVE' ? 'Üstüne çıkarsa' : 'Altına inerse'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Eşik değeri</Text>
+          <TextInput
+            style={styles.input}
+            value={threshold}
+            onChangeText={setThreshold}
+            placeholder={metric === 'PRICE' ? '75.50' : '30'}
+            placeholderTextColor={colors.textTertiary}
+            keyboardType="numeric"
+          />
+
+          <Pressable
+            onPress={createAlert}
+            disabled={saving}
+            style={({ pressed }) => [
+              styles.createBtn,
+              saving && styles.createBtnDisabled,
+              pressed && !saving && styles.createBtnPressed,
+            ]}
+          >
+            {saving ? (
+              <ActivityIndicator color={colors.textInverse} />
+            ) : (
+              <Text style={styles.createBtnText}>Alarmı Oluştur</Text>
+            )}
+          </Pressable>
+        </View>
+
+        <Text style={styles.listTitle}>Aktif alarmlar ({alerts.length})</Text>
+
+        {alerts.length === 0 ? (
+          <EmptyState
+            icon="🔔"
+            title="Henuz alarm yok"
+            message="Yukaridaki formu doldurarak fiyat veya RSI alarmi kurabilirsin"
+          />
+        ) : (
+          alerts.map((alert, i) => (
+            <AlertRow
+              key={alert.id}
+              alert={alert}
+              index={i}
+              onRemove={() => removeAlert(alert.id)}
+              directionLabel={directionLabel}
+              metricLabel={metricLabel}
+            />
+          ))
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function AlertRow({
+  alert,
+  index,
+  onRemove,
+  directionLabel,
+  metricLabel,
+}: any) {
+  const opacity = React.useMemo(() => new Animated.Value(0), []);
+  const translateY = React.useMemo(() => new Animated.Value(12), []);
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 280,
+        delay: Math.min(index * 45, 250),
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, { toValue: 0, damping: 14, useNativeDriver: true }),
+    ]).start();
+  }, [opacity, translateY, index]);
+
+  const isUp = alert.condition.direction === 'ABOVE';
+  const tone = isUp
+    ? { bg: colors.greenSoft, border: colors.greenBorder, color: colors.green }
+    : { bg: colors.redSoft, border: colors.redBorder, color: colors.red };
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <View style={[styles.alertCard, !alert.active && styles.alertCardOff]}>
+        <View style={styles.alertLeft}>
+          <View style={styles.alertSymbolRow}>
+            <Text style={styles.alertSymbol}>
+              {alert.symbol.replace('.IS', '')}
+            </Text>
+            {!alert.active && (
+              <View style={styles.inactiveTag}>
+                <Text style={styles.inactiveText}>TETIKLENDI</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.alertCondition}>
+            {metricLabel(alert.condition.type)} {directionLabel(alert.condition.direction)}{' '}
+            <Text style={[styles.alertThreshold, { color: tone.color }]}>
+              {alert.condition.threshold}
+            </Text>
+          </Text>
+        </View>
+
+        <Pressable onPress={onRemove} hitSlop={10} style={styles.deleteBtn}>
+          <Text style={styles.deleteIcon}>×</Text>
+        </Pressable>
+      </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', padding: 16 },
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { paddingBottom: spacing.xxxl },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  title: { ...typography.title, color: colors.textPrimary },
+  subtitle: { ...typography.caption, color: colors.textTertiary, marginTop: 2 },
+
   formCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    margin: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
   },
-  formTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginBottom: 16,
-  },
+  sectionTitle: { ...typography.heading, color: colors.textPrimary, marginBottom: spacing.md },
   label: {
-    color: '#666',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    color: colors.textTertiary,
     marginBottom: 6,
-    marginTop: 12,
+    marginTop: spacing.md,
+    fontWeight: '600',
   },
   input: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.textPrimary,
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: '#fafafa',
+    borderColor: colors.border,
   },
-  segmentRow: { flexDirection: 'row', gap: 8 },
+  segmentRow: { flexDirection: 'row', gap: spacing.sm },
   segment: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#f0f0f0',
+    paddingVertical: 11,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceElevated,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  segmentActive: { backgroundColor: '#4a90d9' },
-  segmentText: { color: '#666', fontWeight: '600', fontSize: 13 },
-  segmentTextActive: { color: '#fff' },
+  segmentActive: { backgroundColor: colors.accent },
+  segmentUp: { backgroundColor: colors.green },
+  segmentDown: { backgroundColor: colors.red },
+  segmentText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  segmentTextActive: { color: colors.textInverse },
+
   createBtn: {
-    backgroundColor: '#4a90d9',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: colors.accent,
+    borderRadius: radius.md,
+    padding: 15,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: spacing.xl,
   },
+  createBtnPressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
   createBtnDisabled: { opacity: 0.6 },
-  createBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  createBtnText: { color: colors.textInverse, fontWeight: '800', fontSize: 15 },
+
   listTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1a1a2e',
-    marginTop: 24,
-    marginBottom: 10,
+    ...typography.heading,
+    color: colors.textPrimary,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
   },
-  emptyText: { color: '#888', fontStyle: 'italic' },
+
   alertCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  alertInfo: { flex: 1 },
-  alertSymbol: { fontSize: 16, fontWeight: 'bold', color: '#1a1a2e' },
-  alertCondition: { color: '#666', fontSize: 13, marginTop: 2 },
-  deleteBtn: { paddingHorizontal: 14, paddingVertical: 6 },
-  deleteText: { color: '#d32f2f', fontWeight: '600' },
-  info: {
-    color: '#888',
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 24,
-    fontStyle: 'italic',
-    lineHeight: 18,
+  alertCardOff: { opacity: 0.55 },
+  alertLeft: { flex: 1 },
+  alertSymbolRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  alertSymbol: { ...typography.subheading, color: colors.textPrimary },
+  inactiveTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: colors.amberSoft,
   },
+  inactiveText: { fontSize: 8, fontWeight: '800', color: colors.amber },
+  alertCondition: { ...typography.caption, color: colors.textSecondary, marginTop: 4 },
+  alertThreshold: { fontWeight: '800' },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.redSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteIcon: { color: colors.red, fontSize: 18, fontWeight: '700', lineHeight: 20 },
 });
-

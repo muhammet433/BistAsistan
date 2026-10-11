@@ -1,15 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
   Linking,
+  Animated,
 } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../services/api';
+import { colors, spacing, radius, typography, shadows } from '../../theme';
+import { EmptyState } from '../../components/ui';
 
 interface NewsItem {
   title: string;
@@ -19,12 +24,53 @@ interface NewsItem {
   source: string;
 }
 
+function NewsCard({ item, index }: { item: NewsItem; index: number }) {
+  const opacity = React.useMemo(() => new Animated.Value(0), []);
+  const translateY = React.useMemo(() => new Animated.Value(14), []);
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        delay: Math.min(index * 45, 280),
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, { toValue: 0, damping: 14, useNativeDriver: true }),
+    ]).start();
+  }, [opacity, translateY, index]);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <Pressable
+        onPress={() => item.link && Linking.openURL(item.link)}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      >
+        <View style={styles.cardHeader}>
+          <View style={styles.sourceTag}>
+            <Text style={styles.sourceText}>{item.source}</Text>
+          </View>
+          {item.pubDate && (
+            <Text style={styles.date}>
+              {new Date(item.pubDate).toLocaleDateString('tr-TR')}
+            </Text>
+          )}
+        </View>
+
+        <Text style={styles.articleTitle}>{item.title}</Text>
+
+        {item.summary ? <Text style={styles.summary}>{item.summary}</Text> : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function NewsScreen() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadNews = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
@@ -38,84 +84,87 @@ export default function NewsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadNews();
-  }, [loadNews]);
-
-  const renderItem = ({ item }: { item: NewsItem }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => item.link && Linking.openURL(item.link)}
-      activeOpacity={0.7}
-    >
-      <Text style={styles.title}>{item.title}</Text>
-      {item.summary ? <Text style={styles.summary}>{item.summary}</Text> : null}
-      <View style={styles.metaRow}>
-        <Text style={styles.source}>{item.source}</Text>
-        {item.pubDate ? (
-          <Text style={styles.date}>{new Date(item.pubDate).toLocaleDateString('tr-TR')}</Text>
-        ) : null}
-      </View>
-    </TouchableOpacity>
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [load])
   );
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4a90d9" />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Haberler</Text>
+        <Text style={styles.subtitle}>{news.length} baslik</Text>
+      </View>
+
       <FlatList
         data={news}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => `${item.title}-${index}`}
+        keyExtractor={(item, i) => `${i}-${item.title.slice(0, 20)}`}
         contentContainerStyle={styles.list}
+        renderItem={({ item, index }) => <NewsCard item={item} index={index} />}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadNews(true)} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => load(true)}
+            tintColor={colors.accent}
+          />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Haber bulunamadı</Text>
-          </View>
+          <EmptyState icon="—" title="Haber bulunamadi" message="Kaynak yenilenmeyi deneyebilirsin" />
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  list: { padding: 12 },
+  title: { ...typography.title, color: colors.textPrimary },
+  subtitle: { ...typography.caption, color: colors.textTertiary, marginTop: 2 },
+  list: { padding: spacing.md, paddingBottom: spacing.xxxl },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.card,
   },
-  title: { fontSize: 15, fontWeight: '600', color: '#1a1a2e', lineHeight: 21 },
-  summary: { color: '#666', fontSize: 13, marginTop: 6, lineHeight: 18 },
-  metaRow: {
+  cardPressed: { backgroundColor: colors.surfaceHover, transform: [{ scale: 0.99 }] },
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
+    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
-  source: { color: '#4a90d9', fontSize: 12, fontWeight: '600' },
-  date: { color: '#888', fontSize: 12 },
-  empty: { alignItems: 'center', marginTop: 60 },
-  emptyText: { color: '#888', fontStyle: 'italic' },
+  sourceTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: colors.blueSoft,
+  },
+  sourceText: { fontSize: 10, fontWeight: '700', color: colors.blue },
+  date: { fontSize: 11, color: colors.textTertiary },
+  articleTitle: { ...typography.subheading, color: colors.textPrimary, lineHeight: 21 },
+  summary: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.sm, lineHeight: 18 },
 });

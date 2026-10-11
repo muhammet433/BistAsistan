@@ -1,54 +1,160 @@
-import { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
+  Alert,
+  Animated,
 } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../services/api';
+import { marketSocket, ConnectionState, Quote } from '../../services/marketSocket';
+import { colors, spacing, radius, typography, shadows } from '../../theme';
+import {
+  AnimatedNumber,
+  ChangeBadge,
+  Sparkline,
+  EmptyState,
+  SectionHeader,
+} from '../../components/ui';
 
-interface Quote {
-  symbol: string;
-  name: string;
-  price: number;
-  changePercent: number;
+function WatchCard({
+  item,
+  index,
+  onPress,
+  onRemove,
+}: {
+  item: Quote;
+  index: number;
+  onPress: () => void;
+  onRemove: () => void;
+}) {
+  const opacity = React.useMemo(() => new Animated.Value(0), []);
+  const translateY = React.useMemo(() => new Animated.Value(16), []);
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 320,
+        delay: Math.min(index * 50, 300),
+        useNativeDriver: true,
+      }),
+      Animated.spring(translateY, {
+        toValue: 0,
+        damping: 14,
+        stiffness: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, translateY, index]);
+
+  const positive = (item.changePercent || 0) >= 0;
+
+  const sparkData = useMemo(() => {
+    const base = item.price || 1;
+    const change = (item.changePercent || 0) / 100;
+    return Array.from({ length: 14 }, (_, i) => {
+      const t = i / 13;
+      const trend = base * (1 - change + change * t);
+      const noise = base * 0.005 * Math.sin(i * 2.1);
+      return trend + noise;
+    });
+  }, [item.price, item.changePercent]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        onLongPress={onRemove}
+        style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      >
+        <View style={styles.cardGlow} />
+
+        <View style={styles.cardTop}>
+          <View style={styles.cardLeft}>
+            <Text style={styles.symbol}>{item.symbol.replace('.IS', '')}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {item.name || '—'}
+            </Text>
+          </View>
+          <Pressable onPress={onRemove} hitSlop={12} style={styles.removeBtn}>
+            <Text style={styles.removeIcon}>×</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.cardBottom}>
+          <View>
+            <AnimatedNumber
+              value={item.price || 0}
+              decimals={2}
+              style={[styles.price, { color: positive ? colors.green : colors.red }]}
+            />
+            <Text style={styles.tryLabel}>TL</Text>
+          </View>
+
+          <Sparkline
+            data={sparkData}
+            width={70}
+            height={30}
+            color={positive ? colors.green : colors.red}
+          />
+
+          <ChangeBadge value={item.changePercent || 0} size="md" />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
 }
 
 export default function WatchlistScreen() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [connection, setConnection] = useState<ConnectionState>('connecting');
   const router = useRouter();
 
-  const loadWatchlist = useCallback(async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-    setError(null);
 
     try {
-      const symbols = await api.getWatchlist();
-      if (symbols.length === 0) {
-        setQuotes([]);
-        return;
-      }
-
-      const results = await Promise.all(
-        symbols.map((symbol: string) => api.getQuote(symbol))
-      );
-      setQuotes(results.filter(Boolean));
-    } catch {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
         router.replace('/auth');
         return;
       }
-      setError('Takip listesi yüklenemedi.');
+
+      const symbols = await api.getWatchlist();
+      if (!symbols || symbols.length === 0) {
+        setQuotes([]);
+        return;
+      }
+
+      const settled = await Promise.allSettled(
+        symbols.map((symbol: string) => api.getQuote(symbol))
+      );
+
+      const ok = settled
+        .filter(
+          (r): r is PromiseFulfilledResult<Quote> => r.status === 'fulfilled' && r.value
+        )
+        .map(r => r.value);
+
+      setQuotes(ok);
+    } catch {
+      setQuotes([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,126 +162,250 @@ export default function WatchlistScreen() {
   }, [router]);
 
   useFocusEffect(
-    useCallback(() => {
-      loadWatchlist();
-    }, [loadWatchlist])
+    React.useCallback(() => {
+      load();
+    }, [load])
   );
 
-  const removeSymbol = async (symbol: string) => {
-    await api.removeFromWatchlist(symbol);
-    setQuotes(prev => prev.filter(q => q.symbol !== symbol));
+  useFocusEffect(
+    React.useCallback(() => {
+      marketSocket.connect();
+      const unsubState = marketSocket.onStateChange(setConnection);
+      return () => {
+        unsubState();
+      };
+    }, [])
+  );
+
+  const removeSymbol = (symbol: string) => {
+    Alert.alert('Listeden kaldir', `${symbol.replace('.IS', '')} takip listesinden cikarilsin mi?`, [
+      { text: 'Vazgec', style: 'cancel' },
+      {
+        text: 'Kaldir',
+        style: 'destructive',
+        onPress: async () => {
+          await api.removeFromWatchlist(symbol);
+          setQuotes(prev => prev.filter(q => q.symbol !== symbol));
+        },
+      },
+    ]);
   };
 
-  const renderItem = ({ item }: { item: Quote }) => {
-    const isPositive = item.changePercent >= 0;
-    return (
-      <View style={styles.card}>
-        <TouchableOpacity
-          style={styles.cardMain}
-          onPress={() => router.push(`/detail/${item.symbol}`)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.cardHeader}>
-            <Text style={styles.symbol}>{item.symbol.replace('.IS', '')}</Text>
-            <Text
-              style={[styles.change, isPositive ? styles.positive : styles.negative]}
-            >
-              {isPositive ? '+' : ''}
-              {item.changePercent?.toFixed(2)}%
-            </Text>
-          </View>
-          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.price}>{item.price?.toFixed(2)} ₺</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.removeBtn}
-          onPress={() => removeSymbol(item.symbol)}
-        >
-          <Text style={styles.removeText}>Kaldır</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
+  const stats = useMemo(() => {
+    if (quotes.length === 0) return null;
+    const up = quotes.filter(q => (q.changePercent || 0) > 0).length;
+    const down = quotes.filter(q => (q.changePercent || 0) < 0).length;
+    const avg = quotes.reduce((s, q) => s + (q.changePercent || 0), 0) / quotes.length;
+    const best = [...quotes].sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0))[0];
+    return { up, down, avg, best };
+  }, [quotes]);
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4a90d9" />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={styles.loadingText}>Takip listesi yukleniyor</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.title}>Takip Listem</Text>
+            <View style={styles.connectionRow}>
+              <View
+                style={[
+                  styles.dot,
+                  connection === 'connected' && styles.dotLive,
+                ]}
+              />
+              <Text style={styles.connectionText}>
+                {quotes.length} hisse ·{' '}
+                {connection === 'connected' ? 'canlı' : 'bağlanıyor'}
+              </Text>
+            </View>
+          </View>
+          <Pressable onPress={() => load(true)} style={styles.refreshBtn}>
+            <Text style={styles.refreshIcon}>↻</Text>
+          </Pressable>
+        </View>
+
+        {stats && (
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { borderColor: colors.greenBorder, backgroundColor: colors.greenSoft }]}>
+              <Text style={[styles.statValue, { color: colors.green }]}>{stats.up}</Text>
+              <Text style={styles.statLabel}>yukselen</Text>
+            </View>
+            <View style={[styles.statCard, { borderColor: colors.redBorder, backgroundColor: colors.redSoft }]}>
+              <Text style={[styles.statValue, { color: colors.red }]}>{stats.down}</Text>
+              <Text style={styles.statLabel}>dusen</Text>
+            </View>
+            <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+              <Text
+                style={[
+                  styles.statValue,
+                  { color: stats.avg >= 0 ? colors.green : colors.red },
+                ]}
+              >
+                {stats.avg >= 0 ? '+' : ''}{stats.avg.toFixed(1)}%
+              </Text>
+              <Text style={styles.statLabel}>ortalama</Text>
+            </View>
+            {stats.best && (
+              <View style={[styles.statCard, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+                <Text style={[styles.statValue, { color: colors.accent, fontSize: 15 }]}>
+                  {stats.best.symbol.replace('.IS', '')}
+                </Text>
+                <Text style={styles.statLabel}>en iyi</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+
       <FlatList
         data={quotes}
-        renderItem={renderItem}
-        keyExtractor={item => item.symbol}
+        keyExtractor={i => i.symbol}
         contentContainerStyle={styles.list}
+        renderItem={({ item, index }) => (
+          <WatchCard
+            item={item}
+            index={index}
+            onPress={() => router.push(`/detail/${item.symbol}`)}
+            onRemove={() => removeSymbol(item.symbol)}
+          />
+        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => loadWatchlist(true)}
+            onRefresh={() => load(true)}
+            tintColor={colors.accent}
           />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Takip listeniz boş</Text>
-            <Text style={styles.emptyText}>
-              Ana ekrandan bir hisseye dokunup takip listesine ekleyebilirsiniz.
-            </Text>
-          </View>
+          <EmptyState
+            icon="★"
+            title="Takip listesi bos"
+            message="Hisseler sekmesinden yildiza dokunarak istedigin hisseleri takip listesine ekle"
+          />
         }
       />
-      {error && <Text style={styles.error}>{error}</Text>}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+  container: { flex: 1, backgroundColor: colors.background },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { ...typography.caption, color: colors.textTertiary, marginTop: 12 },
+
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  list: { padding: 12 },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardMain: { flex: 1, padding: 16 },
-  cardHeader: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  title: { ...typography.title, color: colors.textPrimary },
+  connectionRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
   },
-  symbol: { fontSize: 18, fontWeight: 'bold', color: '#1a1a2e' },
-  change: { fontSize: 14, fontWeight: '700' },
-  positive: { color: '#4caf50' },
-  negative: { color: '#f44336' },
-  name: { color: '#666', marginTop: 4, fontSize: 14 },
-  price: { fontSize: 20, fontWeight: 'bold', color: '#1a1a2e', marginTop: 8 },
-  removeBtn: {
-    paddingHorizontal: 16,
-    height: '100%',
-    justifyContent: 'center',
-    backgroundColor: '#ffebee',
-  },
-  removeText: { color: '#d32f2f', fontWeight: '600', fontSize: 13 },
-  empty: { alignItems: 'center', marginTop: 60, paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 8 },
-  emptyText: { color: '#888', textAlign: 'center', lineHeight: 20 },
-  error: { color: '#d32f2f', textAlign: 'center', padding: 12 },
-});
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textTertiary },
+  dotLive: { backgroundColor: colors.green },
+  connectionText: { ...typography.caption, color: colors.textSecondary },
 
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surfaceElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  refreshIcon: { color: colors.accent, fontSize: 18, fontWeight: '700' },
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  statCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  statValue: { fontSize: 18, fontWeight: '800' },
+  statLabel: { fontSize: 10, color: colors.textTertiary, marginTop: 2 },
+
+  list: {
+    padding: spacing.md,
+    paddingBottom: spacing.xxxl,
+  },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  cardPressed: {
+    backgroundColor: colors.surfaceHover,
+    transform: [{ scale: 0.985 }],
+  },
+  cardGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: colors.accent,
+    opacity: 0.4,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardLeft: { flex: 1 },
+  symbol: { ...typography.heading, color: colors.textPrimary },
+  name: { ...typography.caption, color: colors.textTertiary, marginTop: 2 },
+  removeBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.redSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeIcon: { color: colors.red, fontSize: 18, fontWeight: '700', lineHeight: 20 },
+
+  cardBottom: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  price: { ...typography.title },
+  tryLabel: { fontSize: 11, color: colors.textTertiary, marginTop: -2 },
+});

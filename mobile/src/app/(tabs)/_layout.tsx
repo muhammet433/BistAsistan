@@ -1,51 +1,77 @@
 import { Tabs } from 'expo-router';
+import { Platform, StyleSheet, View, ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors, shadows } from '../../theme';
+
+function TabIcon({
+  name,
+  nameFocused,
+  color,
+  focused,
+}: {
+  name: React.ComponentProps<typeof Ionicons>['name'];
+  nameFocused: React.ComponentProps<typeof Ionicons>['name'];
+  color: ColorValue;
+  focused: boolean;
+}) {
+  return (
+    <View style={styles.iconWrap}>
+      {focused && <View style={styles.activeBg} />}
+      <Ionicons
+        name={focused ? nameFocused : name}
+        color={focused ? colors.accent : color}
+        size={21}
+      />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#4a90d9',
-        tabBarInactiveTintColor: '#888',
-        tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e0e0e0' },
-        headerStyle: { backgroundColor: '#1a1a2e' },
-        headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: 'bold' },
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarStyle: styles.tabBar,
+        tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
+        tabBarHideOnKeyboard: true,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Hisseler',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart" color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="stats-chart-outline" nameFocused="stats-chart" color={color} focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
         name="watchlist"
         options={{
-          title: 'Takip Listem',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="star" color={color} size={size} />
+          title: 'Takip',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="star-outline" nameFocused="star" color={color} focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
         name="alerts"
         options={{
-          title: 'Alarmlar',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="notifications" color={color} size={size} />
+          title: 'Alarm',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="notifications-outline" nameFocused="notifications" color={color} focused={focused} />
           ),
         }}
       />
-<Tabs.Screen
+      <Tabs.Screen
         name="news"
         options={{
-          title: 'Haberler',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="newspaper" color={color} size={size} />
+          title: 'Haber',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="newspaper-outline" nameFocused="newspaper" color={color} focused={focused} />
           ),
         }}
       />
@@ -53,20 +79,47 @@ export default function TabLayout() {
         name="history"
         options={{
           title: 'Geçmiş',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time" color={color} size={size} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: 'FCM',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cloud-done" color={color} size={size} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="time-outline" nameFocused="time" color={color} focused={focused} />
           ),
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.surface,
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    height: Platform.OS === 'ios' ? 84 : 64,
+    paddingTop: 8,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+    ...shadows.card,
+    elevation: 12,
+  },
+  tabItem: {
+    paddingVertical: 0,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 28,
+  },
+  activeBg: {
+    position: 'absolute',
+    top: 0,
+    left: 6,
+    right: 6,
+    bottom: 0,
+    borderRadius: 10,
+    backgroundColor: colors.blueSoft,
+  },
+});

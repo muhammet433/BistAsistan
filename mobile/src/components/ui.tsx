@@ -218,6 +218,38 @@ const scoreColor =
   );
 }
 
+export function ScreenHeader({
+  title,
+  subtitle,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+}) {
+  const [fade] = useState(() => new Animated.Value(0));
+  const [slide] = useState(() => new Animated.Value(-8));
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 320, useNativeDriver: true }),
+      Animated.spring(slide, { toValue: 0, damping: 16, useNativeDriver: true }),
+    ]).start();
+  }, [fade, slide]);
+
+  return (
+    <Animated.View
+      style={[styles.screenHeader, { opacity: fade, transform: [{ translateY: slide }] }]}
+    >
+      <View style={{ flex: 1 }}>
+        <Text style={styles.screenTitle}>{title}</Text>
+        {subtitle && <Text style={styles.screenSubtitle}>{subtitle}</Text>}
+      </View>
+      {right}
+    </Animated.View>
+  );
+}
+
 export function SectionHeader({
   title,
   subtitle,
@@ -302,6 +334,19 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginTop: 2,
   },
+  screenHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  screenTitle: {
+    ...typography.title,
+    color: colors.textPrimary,
+  },
+  screenSubtitle: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
   empty: {
     alignItems: 'center',
     paddingVertical: 60,
@@ -333,4 +378,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
 
