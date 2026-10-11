@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useFocusEffect, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../services/api';
 import { PriceChart, MovingAverageLine } from '../../components/PriceChart';
 import { CandlestickChart, PatternBadge } from '../../components/CandlestickChart';
@@ -187,7 +188,8 @@ const candles = (analysis as any).candles || null;
       : riskLevel.indexOf('ORTA') === 0 ? colors.amber : colors.green;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.hero}>
         <View style={styles.heroTop}>
           <View style={{ flex: 1 }}>
@@ -606,7 +608,8 @@ const candles = (analysis as any).candles || null;
           Bu analiz teknik göstergelere dayanır, yatırım tavsiyesi değildir.
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -913,5 +916,6 @@ const styles = StyleSheet.create({
   },
   disclaimerText: { fontSize: 11, color: colors.amber, lineHeight: 16 },
 });
+
 
 

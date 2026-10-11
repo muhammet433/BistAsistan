@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { colors } from '../theme';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../services/api';
@@ -132,7 +133,7 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,
@@ -151,7 +152,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 16,
-    color: '#aaa',
+    color: colors.textSecondary,
   },
   form: {
     gap: 16,
@@ -160,21 +161,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: '#ccc',
+    color: colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
   input: {
-    backgroundColor: '#2a2a4e',
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 12,
     padding: 16,
     color: '#fff',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#3a3a5e',
+    borderColor: colors.border,
   },
   button: {
-    backgroundColor: '#4a90d9',
+    backgroundColor: colors.accent,
     borderRadius: 12,
     padding: 18,
     alignItems: 'center',
@@ -193,7 +194,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   switchText: {
-    color: '#4a90d9',
+    color: colors.accent,
     fontSize: 15,
   },
 });
+
+

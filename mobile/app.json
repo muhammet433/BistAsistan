@@ -5,7 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#080B14",
     "scheme": "bistanaliz",
     "ios": {
       "supportsTablet": true,
@@ -15,26 +16,33 @@
       "package": "com.bistanaliz.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#080B14",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "permissions": ["android.permission.POST_NOTIFICATIONS", "android.permission.INTERNET"]
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.INTERNET"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
+"plugins": [
       "expo-router",
       "expo-status-bar",
+      "react-native-edge-to-edge",
       [
         "expo-notifications",
         {
           "color": "#ffffff"
         }
       ]
-    ]
+    ],
+    "experiments": {
+      "edgeToEdgeEnabled": true
+    }
   }
 }
