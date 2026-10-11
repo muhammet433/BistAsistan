@@ -49,6 +49,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="picks"
+        options={{
+          title: 'Firsatlar',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="flash-outline" nameFocused="flash" color={color} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="watchlist"
         options={{
           title: 'Takip',

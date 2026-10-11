@@ -1,39 +1,47 @@
 export const colors = {
-  background: '#0B0E14',
-  surface: '#141925',
-  surfaceElevated: '#1C2233',
-  surfaceHover: '#232A3D',
+  background: '#080B14',
+  surface: '#121826',
+  surfaceElevated: '#1B2334',
+  surfaceHover: '#232D42',
 
-  border: '#252C3D',
-  borderLight: '#2F3849',
+  border: '#27324A',
+  borderLight: '#35415E',
 
-  textPrimary: '#F0F3F8',
-  textSecondary: '#98A2B8',
-  textTertiary: '#5E6880',
-  textInverse: '#0B0E14',
+  textPrimary: '#F2F6FF',
+  textSecondary: '#9BA8C7',
+  textTertiary: '#64729A',
+  textInverse: '#080B14',
 
-  green: '#22C77A',
-  greenSoft: 'rgba(34, 199, 122, 0.12)',
-  greenBorder: 'rgba(34, 199, 122, 0.3)',
+  green: '#00E88F',
+  greenSoft: 'rgba(0, 232, 143, 0.14)',
+  greenBorder: 'rgba(0, 232, 143, 0.38)',
 
-  red: '#F5566B',
-  redSoft: 'rgba(245, 86, 107, 0.12)',
-  redBorder: 'rgba(245, 86, 107, 0.3)',
+  red: '#FF3D71',
+  redSoft: 'rgba(255, 61, 113, 0.14)',
+  redBorder: 'rgba(255, 61, 113, 0.38)',
 
-  amber: '#F5A524',
-  amberSoft: 'rgba(245, 165, 36, 0.12)',
-  amberBorder: 'rgba(245, 165, 36, 0.3)',
+  amber: '#FFB020',
+  amberSoft: 'rgba(255, 176, 32, 0.14)',
+  amberBorder: 'rgba(255, 176, 32, 0.38)',
 
-  blue: '#4C8DFF',
-  blueSoft: 'rgba(76, 141, 255, 0.12)',
-  blueBorder: 'rgba(76, 141, 255, 0.3)',
+  blue: '#3B82F6',
+  blueSoft: 'rgba(59, 130, 246, 0.16)',
+  blueBorder: 'rgba(59, 130, 246, 0.4)',
 
-  purple: '#A97BFF',
-  purpleSoft: 'rgba(169, 123, 255, 0.12)',
+  purple: '#A855F7',
+  purpleSoft: 'rgba(168, 85, 247, 0.16)',
+  purpleBorder: 'rgba(168, 85, 247, 0.4)',
 
-  accent: '#4C8DFF',
-  gradientStart: '#4C8DFF',
-  gradientEnd: '#A97BFF',
+  cyan: '#06D6E0',
+  cyanSoft: 'rgba(6, 214, 224, 0.14)',
+
+  pink: '#F472B6',
+  orange: '#FF8A3D',
+
+  accent: '#3B82F6',
+  accentAlt: '#A855F7',
+  gradientStart: '#3B82F6',
+  gradientEnd: '#A855F7',
 } as const;
 
 export const spacing = {

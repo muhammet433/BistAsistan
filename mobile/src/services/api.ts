@@ -62,6 +62,19 @@ export const api = {
   getAnalysis: (symbol: string) => fetchJSON(`/analyze/${symbol}`),
   getNews: (symbol?: string) => fetchJSON(symbol ? `/news?symbol=${symbol}` : '/news'),
   getMarketSummary: () => fetchJSON('/market-summary'),
+  getParticipation: (symbol: string) => fetchJSON(`/participation/${symbol}`),
+  getAllParticipation: () => fetchJSON('/participation'),
+  getTopPicks: async (filter = 'top', limit = 25) => {
+    const headers = await getAuthHeaders();
+    const response = await fetch(
+      `${API_BASE_URL}/top-picks?filter=${filter}&limit=${limit}`,
+      { headers }
+    );
+    const result = await response.json();
+    if (!result.success) throw new Error(result.error || 'Hata');
+    return result;
+  },
+  runScan: () => postJSON('/scan'),
 
   login: (email: string, password: string) => postJSON('/auth/login', { email, password }),
   register: (name: string, email: string, password: string) =>

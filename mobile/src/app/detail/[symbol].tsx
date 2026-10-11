@@ -176,7 +176,9 @@ export default function DetailScreen() {
   const volatility = analysis.volatility || { label: 'BILINMIYOR', annualized: '0' };
   const volumeProfile = analysis.volumeProfile || { label: 'BILINMIYOR', ratio: '0' };
   const risk = analysis.risk || { level: 'BILINMIYOR', factors: [] };
-  const candles = (analysis as any).candles || null;
+const candles = (analysis as any).candles || null;
+  const participation = (analysis as any).participation || null;
+  const fundamentals = (analysis as any).fundamentals || null;
   const signals = analysis.signals || [];
 
   const riskLevel = String(risk.level || '');
@@ -349,6 +351,148 @@ export default function DetailScreen() {
               <Text style={styles.volumeRatio}>
                 Ortalama hacim orani: {candles.volume.ratio}x
               </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {participation && participation.floatRatio !== null && (
+        <View style={styles.section}>
+          <SectionHeader
+            title="Katılım Oranı"
+            subtitle="Halka açıkta kalan hisse payı"
+          />
+          <View
+            style={[
+              styles.participationCard,
+              {
+                borderColor:
+                  participation.tone === 'green'
+                    ? colors.greenBorder
+                    : participation.tone === 'amber'
+                      ? colors.amberBorder
+                      : colors.redBorder,
+                backgroundColor:
+                  participation.tone === 'green'
+                    ? colors.greenSoft
+                    : participation.tone === 'amber'
+                      ? colors.amberSoft
+                      : colors.redSoft,
+              },
+            ]}
+          >
+            <View style={styles.participationTop}>
+              <View>
+                <Text
+                  style={[
+                    styles.participationValue,
+                    {
+                      color:
+                        participation.tone === 'green'
+                          ? colors.green
+                          : participation.tone === 'amber'
+                            ? colors.amber
+                            : colors.red,
+                    },
+                  ]}
+                >
+                  %{participation.floatRatio.toFixed(1)}
+                </Text>
+                <Text
+                  style={[
+                    styles.participationLabel,
+                    {
+                      color:
+                        participation.tone === 'green'
+                          ? colors.green
+                          : participation.tone === 'amber'
+                            ? colors.amber
+                            : colors.red,
+                    },
+                  ]}
+                >
+                  {participation.label}
+                </Text>
+              </View>
+
+              <View style={styles.participationBarWrap}>
+                <View style={styles.participationTrack}>
+                  <View
+                    style={[
+                      styles.participationFill,
+                      {
+                        width: `${Math.min(participation.floatRatio, 100)}%`,
+                        backgroundColor:
+                          participation.tone === 'green'
+                            ? colors.green
+                            : participation.tone === 'amber'
+                              ? colors.amber
+                              : colors.red,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.participationScale}>0% — 100%</Text>
+              </View>
+            </View>
+
+            {participation.warning && (
+              <View style={styles.warningBox}>
+                <Text style={styles.warningIcon}>!</Text>
+                <Text style={styles.warningText}>{participation.warning}</Text>
+              </View>
+            )}
+
+            {participation.isHealthy && (
+              <View style={styles.healthyBox}>
+                <Text style={styles.healthyText}>
+                  Katılım oranı sağlıklı — fiyat hareketleri daha gerçekçi
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {fundamentals && (
+            <View style={styles.fundGrid}>
+              {fundamentals.sector && (
+                <View style={styles.fundItem}>
+                  <Text style={styles.fundLabel}>Sektor</Text>
+                  <Text style={styles.fundValue} numberOfLines={1}>{fundamentals.sector}</Text>
+                </View>
+              )}
+              {fundamentals.roe !== null && fundamentals.roe !== undefined && (
+                <View style={styles.fundItem}>
+                  <Text style={styles.fundLabel}>ROE</Text>
+                  <Text
+                    style={[
+                      styles.fundValue,
+                      { color: fundamentals.roe > 0 ? colors.green : colors.red },
+                    ]}
+                  >
+                    %{Number(fundamentals.roe).toFixed(1)}
+                  </Text>
+                </View>
+              )}
+              {fundamentals.pe !== null && fundamentals.pe !== undefined && (
+                <View style={styles.fundItem}>
+                  <Text style={styles.fundLabel}>F/K</Text>
+                  <Text style={styles.fundValue}>{Number(fundamentals.pe).toFixed(1)}</Text>
+                </View>
+              )}
+              {fundamentals.pb !== null && fundamentals.pb !== undefined && (
+                <View style={styles.fundItem}>
+                  <Text style={styles.fundLabel}>PD/DD</Text>
+                  <Text style={styles.fundValue}>{Number(fundamentals.pb).toFixed(2)}</Text>
+                </View>
+              )}
+              {fundamentals.dividendYield !== null && fundamentals.dividendYield !== undefined && (
+                <View style={styles.fundItem}>
+                  <Text style={styles.fundLabel}>Temettü</Text>
+                  <Text style={[styles.fundValue, { color: colors.amber }]}>
+                    %{Number(fundamentals.dividendYield).toFixed(1)}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -629,6 +773,67 @@ const styles = StyleSheet.create({
   signalType: { fontSize: 12, fontWeight: '800', letterSpacing: 0.4 },
   signalCategory: { fontSize: 10, color: colors.textTertiary, fontWeight: '600' },
   signalReason: { ...typography.caption, color: colors.textSecondary, marginTop: 3, lineHeight: 17 },
+
+  participationCard: {
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+  },
+  participationTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  participationValue: { fontSize: 30, fontWeight: '800' },
+  participationLabel: { fontSize: 11, fontWeight: '800', marginTop: 2 },
+  participationBarWrap: { flex: 1, marginLeft: spacing.lg },
+  participationTrack: {
+    height: 7,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  participationFill: { height: '100%', borderRadius: 4 },
+  participationScale: { fontSize: 9, color: colors.textTertiary, marginTop: 5, textAlign: 'right' },
+  warningBox: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.redSoft,
+    borderRadius: radius.md,
+  },
+  warningIcon: {
+    color: colors.red,
+    fontWeight: '800',
+    fontSize: 14,
+    lineHeight: 18,
+  },
+  warningText: { flex: 1, fontSize: 12, color: colors.red, lineHeight: 18 },
+  healthyBox: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.greenSoft,
+    borderRadius: radius.md,
+  },
+  healthyText: { fontSize: 12, color: colors.green, lineHeight: 18 },
+  fundGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  fundItem: {
+    width: '31%',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  fundLabel: { fontSize: 10, color: colors.textTertiary },
+  fundValue: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginTop: 3 },
 
   biasCard: {
     backgroundColor: colors.surface,

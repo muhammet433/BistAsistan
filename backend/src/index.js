@@ -14,6 +14,8 @@ const marketCache = require('./marketCacheService');
 const marketPublisher = require('./marketPublisher');
 const realtime = require('./realtimeServer');
 const candleAnalyzer = require('./candleAnalyzer');
+const fundamentals = require('./fundamentalsService');
+const scanner = require('./scannerService');
 const db = require('./database');
 
 notificationService.initialize();
@@ -141,12 +143,93 @@ app.get('/api/analyze/:symbol', async (req, res) => {
         const analysis = analysisEngine.analyze(historical);
         const overall = analysisEngine.getOverallSignal(analysis.signals || []);
         const candles = candleAnalyzer.analyzeCandles(historical);
-        const payload = { ...analysis, overall, candles };
+        const participation = await fundamentals.load()
+            .then(() => fundamentals.analyze(symbol))
+            .catch(() => null);
+        const fund = fundamentals.getFundamentals(symbol);
+        const payload = { ...analysis, overall, candles, participation, fundamentals: fund };
 
         await marketCache.saveAnalysis(symbol, payload);
         realtime.broadcastSignal(symbol, payload);
 
         res.json({ success: true, data: payload, meta: { cached: false } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/participation/:symbol', async (req, res) => {
+    try {
+        await fundamentals.load();
+        const result = fundamentals.analyze(req.params.symbol);
+        const fund = fundamentals.getFundamentals(req.params.symbol);
+        res.json({ success: true, data: { ...result, fundamentals: fund } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/participation', async (req, res) => {
+    try {
+        await fundamentals.load();
+        const quotes = await marketCache.getQuotes();
+        const rows = quotes
+            .map(q => ({ symbol: q.symbol, ...fundamentals.analyze(q.symbol) }))
+            .sort((a, b) => (b.floatRatio || 0) - (a.floatRatio || 0));
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+async function analyzeSymbol(symbol) {
+    const historical = await dataFetcher.fetchHistorical(symbol, '1y', '1d');
+    if (!historical || historical.length < 30) return null;
+    const analysis = analysisEngine.analyze(historical);
+    const overall = analysisEngine.getOverallSignal(analysis.signals || []);
+    const candles = candleAnalyzer.analyzeCandles(historical);
+    return { ...analysis, overall, candles };
+}
+
+app.get('/api/top-picks', async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const filter = req.query.filter || 'top';
+
+        let data = scanner.getCached();
+
+        if (!data) {
+            const quotes = await marketCache.getQuotes();
+            const symbols = quotes.map(q => q.symbol);
+            data = await scanner.runScan(symbols, analyzeSymbol);
+        }
+
+        let picks = data.top;
+        if (filter === 'buy') picks = data.bestBuys;
+        else if (filter === 'healthy') picks = data.healthyPicks;
+        else if (filter === 'healthyBuy') picks = data.healthyBuys;
+
+        res.json({
+            success: true,
+            data: picks.slice(0, limit),
+            meta: {
+                generatedAt: data.generatedAt,
+                scanned: data.scanned,
+                totalBuys: data.bestBuys.length,
+                totalHealthyBuys: data.healthyBuys.length,
+            },
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/scan', async (req, res) => {
+    try {
+        const quotes = await marketCache.getQuotes();
+        const symbols = quotes.map(q => q.symbol);
+        const data = await scanner.runScan(symbols, analyzeSymbol);
+        res.json({ success: true, data: { scanned: data.scanned, generatedAt: data.generatedAt } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
